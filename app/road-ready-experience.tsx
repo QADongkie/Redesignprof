@@ -766,18 +766,16 @@ function CoursePlanner() {
   );
 }
 
-// ─── 3-D Map pin coordinates on the upright map face ────────────────────────
-// x = horizontal (west→east), y = vertical (north→south, positive=up)
-// These approximate the branch lat/lon positions on the standing GLB.
-const BRANCH_3D: Record<string, { x: number; y: number }> = {
-  bacolod:          { x: -0.42, y:  0.10 },
-  cadiz:            { x: -0.42, y:  0.36 },
-  pontevedra:       { x: -0.38, y: -0.18 },
-  "cagayan-de-oro": { x:  0.52, y: -0.40 },
-  tagum:            { x:  0.88, y: -0.58 },
-  nabunturan:       { x:  1.08, y: -0.48 },
-  samal:            { x:  0.82, y: -0.80 },
-  mati:             { x:  1.28, y: -0.78 },
+// ─── 3-D Map Anchor Lookup & Fallback Coordinates ───────────────────────────
+const PIN_ANCHORS: Record<string, { nodeName: string; x: number; y: number; z: number }> = {
+  bacolod:          { nodeName: "Pin_Bacolod",          x: 0.7086, y: -1.2964, z: 0.24 },
+  cadiz:            { nodeName: "Pin_Cadiz",            x: 0.9227, y: -1.1307, z: 0.24 },
+  pontevedra:       { nodeName: "Pin_Pontevedra",       x: 0.6590, y: -1.4821, z: 0.24 },
+  "cagayan-de-oro": { nodeName: "Pin_Cagayan_de_Oro",   x: 1.7147, y: -2.6604, z: 0.24 },
+  tagum:            { nodeName: "Pin_Tagum",            x: 2.4195, y: -3.2780, z: 0.24 },
+  nabunturan:       { nodeName: "Pin_Nabunturan",       x: 2.5136, y: -3.1828, z: 0.24 },
+  samal:            { nodeName: "Pin_Samal",            x: 2.3588, y: -3.5074, z: 0.24 },
+  mati:             { nodeName: "Pin_Mati",             x: 2.6631, y: -3.5805, z: 0.24 },
 };
 
 function MapCanvas3D({
@@ -793,7 +791,6 @@ function MapCanvas3D({
   const selectedIdRef = useRef(selectedId);
   const filteredIdsRef = useRef(filteredIds);
 
-  // Keep refs in sync so the animation loop always reads latest props
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
   useEffect(() => { filteredIdsRef.current = filteredIds; }, [filteredIds]);
 
@@ -816,80 +813,66 @@ function MapCanvas3D({
     // ── Scene & Camera ────────────────────────────────────────────────────────
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x010e1f);
-    scene.fog = new THREE.FogExp2(0x010e1f, 0.018);
 
-    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
-    camera.position.set(0, 0, 10);
+    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
+    camera.position.set(0, 0, 18);
     camera.lookAt(0, 0, 0);
 
     // ── Lighting ──────────────────────────────────────────────────────────────
-    scene.add(new THREE.HemisphereLight(0xd0e8ff, 0x020c18, 1.4));
-    const sun = new THREE.DirectionalLight(0xfff4e0, 3.2);
-    sun.position.set(-4, 10, 6);
+    scene.add(new THREE.HemisphereLight(0xdbeafe, 0x020d1c, 2.0));
+
+    const sun = new THREE.DirectionalLight(0xfff6e5, 2.8);
+    sun.position.set(-4, 8, 14);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.near = 0.5;
-    sun.shadow.camera.far = 50;
-    sun.shadow.camera.left = -8;
-    sun.shadow.camera.right = 8;
-    sun.shadow.camera.top = 8;
-    sun.shadow.camera.bottom = -8;
     sun.shadow.bias = -0.0003;
     scene.add(sun);
-    const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.8);
-    rimLight.position.set(8, 3, -6);
-    scene.add(rimLight);
+
+    const fillLight = new THREE.DirectionalLight(0x38bdf8, 1.4);
+    fillLight.position.set(6, -4, 8);
+    scene.add(fillLight);
+
     const goldAccent = new THREE.DirectionalLight(0xf3b61f, 1.2);
-    goldAccent.position.set(-8, 2, -4);
+    goldAccent.position.set(-6, -6, 6);
     scene.add(goldAccent);
 
-    // ── Pin geometry helpers ──────────────────────────────────────────────────
-    const pinGeo = new THREE.SphereGeometry(0.085, 16, 16);
-    const stalkGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.3, 8);
-    const ringGeo = new THREE.TorusGeometry(0.13, 0.018, 8, 32);
+    // ── Root container for the map and pins ───────────────────────────────────
+    const mapGroup = new THREE.Group();
+    scene.add(mapGroup);
 
-    const matSelected = new THREE.MeshPhysicalMaterial({ color: 0xf3b61f, emissive: 0xf3b61f, emissiveIntensity: 1.6, metalness: 0.3, roughness: 0.2 });
-    const matDefault  = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x38bdf8, emissiveIntensity: 0.7, metalness: 0.2, roughness: 0.4 });
-    const matMuted    = new THREE.MeshStandardMaterial({ color: 0x2a4a5e, emissive: 0x1a2f3e, emissiveIntensity: 0.2, metalness: 0.1, roughness: 0.7 });
-    const stalkMat    = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.6, roughness: 0.3 });
+    // ── Pin materials & geometry ──────────────────────────────────────────────
+    const pinGeo = new THREE.SphereGeometry(0.12, 20, 20);
+    const stalkGeo = new THREE.CylinderGeometry(0.024, 0.024, 0.35, 12);
+    const ringGeo = new THREE.TorusGeometry(0.16, 0.022, 12, 32);
 
-    // ── Build pin meshes ──────────────────────────────────────────────────────
-    const pinMeshes: Array<{ id: string; group: THREE.Group; head: THREE.Mesh }> = [];
-    const clickTargets: Array<{ mesh: THREE.Mesh; id: string }> = [];
-
-    branches.forEach((branch) => {
-      const pos3D = BRANCH_3D[branch.id];
-      if (!pos3D) return;
-
-      const group = new THREE.Group();
-      // Pins sit slightly in front of the upright map face (z = small positive offset)
-      group.position.set(pos3D.x, pos3D.y, 0.25);
-
-      const stalk = new THREE.Mesh(stalkGeo, stalkMat);
-      stalk.position.z = 0.15;  // stalk protrudes forward from map face
-      stalk.rotation.x = Math.PI / 2;
-      stalk.castShadow = true;
-      group.add(stalk);
-
-      const head = new THREE.Mesh(pinGeo, matDefault.clone());
-      head.position.z = 0.32;   // head floats in front
-      head.castShadow = true;
-      group.add(head);
-
-      const ring = new THREE.Mesh(ringGeo, matDefault.clone());
-      ring.position.z = 0.06;
-      group.add(ring);
-
-      // Invisible larger hit sphere for easier clicking
-      const hitGeo = new THREE.SphereGeometry(0.22, 8, 8);
-      const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
-      hitMesh.position.z = 0.22;
-      group.add(hitMesh);
-      clickTargets.push({ mesh: hitMesh, id: branch.id });
-
-      scene.add(group);
-      pinMeshes.push({ id: branch.id, group, head });
+    const matSelected = new THREE.MeshPhysicalMaterial({
+      color: 0xf3b61f,
+      emissive: 0xf3b61f,
+      emissiveIntensity: 1.8,
+      metalness: 0.3,
+      roughness: 0.15,
+      clearcoat: 1.0,
     });
+    const matDefault = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      emissive: 0x38bdf8,
+      emissiveIntensity: 0.8,
+      metalness: 0.2,
+      roughness: 0.3,
+    });
+    const matMuted = new THREE.MeshStandardMaterial({
+      color: 0x1e3a50,
+      emissive: 0x0f2030,
+      emissiveIntensity: 0.15,
+      metalness: 0.1,
+      roughness: 0.7,
+      transparent: true,
+      opacity: 0.35,
+    });
+    const stalkMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.7, roughness: 0.2 });
+
+    const pinMeshes: Array<{ id: string; group: THREE.Group; head: THREE.Mesh; ring: THREE.Mesh }> = [];
+    const clickTargets: Array<{ mesh: THREE.Mesh; id: string }> = [];
 
     // ── Load GLB map model ────────────────────────────────────────────────────
     const loader = new GLTFLoader();
@@ -898,184 +881,142 @@ function MapCanvas3D({
       (gltf) => {
         const model = gltf.scene;
 
-        // Auto-scale & center the model
+        // Perfectly center the model at (0, 0, 0)
         const box = new THREE.Box3().setFromObject(model);
-        const size = new THREE.Vector3();
         const center = new THREE.Vector3();
-        box.getSize(size);
         box.getCenter(center);
-
-        const maxDim = Math.max(size.x, size.z);
-        const scale = 5.5 / (maxDim || 1);
-        model.scale.setScalar(scale);
-        model.position.sub(center.multiplyScalar(scale));
-
-        // Stand the model upright (rotate -90° on X so it faces the camera)
-        model.rotation.x = -Math.PI / 2;
-
-        // Re-center after rotation
-        const scaledBox = new THREE.Box3().setFromObject(model);
-        const scaledCenter = new THREE.Vector3();
-        scaledBox.getCenter(scaledCenter);
-        model.position.sub(scaledCenter);
+        model.position.sub(center);
 
         model.traverse((child) => {
-          if (!(child as THREE.Mesh).isMesh) return;
-          const mesh = child as THREE.Mesh;
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          // Give land a rich material if it arrives without one
-          const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-          if (!mat || (mat as THREE.MeshStandardMaterial).color?.getHex() === 0xffffff) {
-            mesh.material = new THREE.MeshPhysicalMaterial({
-              color: 0x0e2a42,
-              metalness: 0.55,
-              roughness: 0.45,
-              clearcoat: 0.3,
-            });
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
           }
         });
 
-        // Insert below pins so they appear on top
-        scene.add(model);
-        model.position.y -= 0.01;
+        mapGroup.add(model);
+
+        // Build pins attached directly to each anchor position
+        branches.forEach((branch) => {
+          const anchorConfig = PIN_ANCHORS[branch.id];
+          if (!anchorConfig) return;
+
+          let pinPos = new THREE.Vector3(anchorConfig.x, anchorConfig.y, anchorConfig.z);
+          const anchorNode = model.getObjectByName(anchorConfig.nodeName);
+          if (anchorNode) {
+            pinPos = anchorNode.position.clone();
+          }
+
+          const group = new THREE.Group();
+          group.position.copy(pinPos);
+
+          // Stalk extends outward along +Z (towards viewer)
+          const stalk = new THREE.Mesh(stalkGeo, stalkMat);
+          stalk.rotation.x = Math.PI / 2;
+          stalk.position.z = 0.18;
+          stalk.castShadow = true;
+          group.add(stalk);
+
+          // Pin head floats at the top of stalk
+          const head = new THREE.Mesh(pinGeo, matDefault.clone());
+          head.position.z = 0.42;
+          head.castShadow = true;
+          group.add(head);
+
+          // Base ring sits on the island surface
+          const ring = new THREE.Mesh(ringGeo, matDefault.clone());
+          ring.position.z = 0.04;
+          group.add(ring);
+
+          // Invisible larger hit area for seamless clicking
+          const hitGeo = new THREE.SphereGeometry(0.4, 12, 12);
+          const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
+          hitMesh.position.z = 0.35;
+          group.add(hitMesh);
+          clickTargets.push({ mesh: hitMesh, id: branch.id });
+
+          model.add(group);
+          pinMeshes.push({ id: branch.id, group, head, ring });
+        });
       },
       undefined,
       (err) => {
-        console.warn("Map GLB failed to load, using fallback plane:", err);
-        // Fallback flat plane
-        const plane = new THREE.Mesh(
-          new THREE.PlaneGeometry(5.5, 5.5),
-          new THREE.MeshStandardMaterial({ color: 0x0e2a42, roughness: 0.6, metalness: 0.4 })
-        );
-        plane.rotation.x = -Math.PI / 2;
-        plane.receiveShadow = true;
-        scene.add(plane);
+        console.warn("Map GLB failed to load:", err);
       }
     );
 
-    // ── Ocean / floor ─────────────────────────────────────────────────────────
-    const ocean = new THREE.Mesh(
-      new THREE.PlaneGeometry(120, 120),
-      new THREE.MeshStandardMaterial({ color: 0x020d1c, roughness: 0.9, metalness: 0.05 })
-    );
-    ocean.rotation.x = -Math.PI / 2;
-    ocean.position.y = -0.02;
-    ocean.receiveShadow = true;
-    scene.add(ocean);
-
-    // ── Raycaster for click / hover ───────────────────────────────────────────
+    // ── Raycaster for click detection ─────────────────────────────────────────
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
-    let hoveredId: string | null = null;
 
     const getPointerNDC = (e: MouseEvent | TouchEvent) => {
       const rect = canvas.getBoundingClientRect();
       const client = "touches" in e ? e.touches[0] : e;
       pointer.set(
-        ((client.clientX - rect.left) / rect.width)  * 2 - 1,
-        -((client.clientY - rect.top)  / rect.height) * 2 + 1
+        ((client.clientX - rect.left) / rect.width) * 2 - 1,
+        -((client.clientY - rect.top) / rect.height) * 2 + 1
       );
-    };
-
-    const onMouseMove = (e: MouseEvent) => {
-      getPointerNDC(e);
-      raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObjects(clickTargets.map(t => t.mesh));
-      const hit = hits[0] ? clickTargets.find(t => t.mesh === hits[0].object) : null;
-      const newHover = hit?.id ?? null;
-      if (newHover !== hoveredId) {
-        hoveredId = newHover;
-        canvas.style.cursor = hoveredId ? "pointer" : "default";
-      }
     };
 
     const onClick = (e: MouseEvent) => {
       getPointerNDC(e);
       raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObjects(clickTargets.map(t => t.mesh));
+      const hits = raycaster.intersectObjects(clickTargets.map((t) => t.mesh));
       if (hits[0]) {
-        const target = clickTargets.find(t => t.mesh === hits[0].object);
+        const target = clickTargets.find((t) => t.mesh === hits[0].object);
         if (target) onSelectBranch(target.id);
       }
     };
 
-    canvas.addEventListener("mousemove", onMouseMove);
+    canvas.style.cursor = "default";
     canvas.addEventListener("click", onClick);
 
-    // ── Orbit-style passive drag ──────────────────────────────────────────────
-    let isDragging = false;
-    let lastMX = 0;
-    let lastMY = 0;
-    let orbitTheta = 0;       // horizontal rotation
-    let orbitPhi   = 1.57;   // straight-on (equator level)
-    let orbitRadius = 10;    // far enough to see full standing map
-    const PHI_MIN = 0.9, PHI_MAX = 2.2;
-
-    const onDown = (e: PointerEvent) => { isDragging = true; lastMX = e.clientX; lastMY = e.clientY; };
-    const onUp   = () => { isDragging = false; };
-    const onDrag = (e: PointerEvent) => {
-      if (!isDragging) return;
-      const dx = e.clientX - lastMX;
-      const dy = e.clientY - lastMY;
-      lastMX = e.clientX;
-      lastMY = e.clientY;
-      orbitTheta -= dx * 0.008;
-      orbitPhi    = Math.min(PHI_MAX, Math.max(PHI_MIN, orbitPhi + dy * 0.006));
-    };
-    canvas.addEventListener("pointerdown", onDown);
-    window.addEventListener("pointerup",   onUp);
-    window.addEventListener("pointermove", onDrag);
-
-    // ── Resize ────────────────────────────────────────────────────────────────
+    // ── Auto-Framing Resize: Guarantees full map visibility with zero cutoff ─
     let lastW = 0, lastH = 0;
     const resize = () => {
       const w = canvas.clientWidth, h = canvas.clientHeight;
-      if (w === lastW && h === lastH) return;
+      if (!w || !h || (w === lastW && h === lastH)) return;
       lastW = w; lastH = h;
       renderer.setSize(w, h, false);
-      camera.aspect = w / (h || 1);
+
+      const aspect = w / h;
+      camera.aspect = aspect;
+
+      // Model span: height ~10.0, width ~5.86
+      // Calculate distance to fit full height and width with breathing room
+      const targetHeight = Math.max(11.8, 7.2 / (aspect || 1));
+      const fovRad = (camera.fov * Math.PI) / 360;
+      const distance = (targetHeight / 2) / Math.tan(fovRad);
+
+      camera.position.set(0, 0, distance);
+      camera.lookAt(0, 0, 0);
       camera.updateProjectionMatrix();
     };
     window.addEventListener("resize", resize, { passive: true });
 
-    // ── Animation Loop ────────────────────────────────────────────────────────
+    // ── Render Loop ───────────────────────────────────────────────────────────
     let raf = 0;
     const render = () => {
       resize();
       raf = requestAnimationFrame(render);
 
-      // Orbit camera
-      const cx = orbitRadius * Math.sin(orbitPhi) * Math.sin(orbitTheta);
-      const cy = orbitRadius * Math.cos(orbitPhi);
-      const cz = orbitRadius * Math.sin(orbitPhi) * Math.cos(orbitTheta);
-      camera.position.set(cx, cy, cz);
-      camera.lookAt(0, 0, 0);
-
       const selId = selectedIdRef.current;
       const filtIds = filteredIdsRef.current;
 
-      // Update pin materials & gentle float animation
-      const t = performance.now() / 1000;
-      pinMeshes.forEach(({ id, group, head }) => {
+      // Update pin materials and selection state
+      pinMeshes.forEach(({ id, group, head, ring }) => {
         const isSelected = id === selId;
-        const isMuted    = filtIds.length > 0 && !filtIds.includes(id);
+        const isMuted = filtIds.length > 0 && !filtIds.includes(id);
 
         const targetMat = isSelected ? matSelected : isMuted ? matMuted : matDefault;
         if ((head.material as THREE.Material) !== targetMat) {
           head.material = targetMat;
+          ring.material = targetMat;
         }
 
-        // Subtle float: selected pin bobs more visibly
-        const floatAmp   = isSelected ? 0.055 : 0.022;
-        const floatSpeed = isSelected ? 2.1   : 1.4;
-        const offset     = branches.findIndex(b => b.id === id) * 0.7;
-        // Float pins in the Z direction (in front of the map face)
-        group.position.z = (isMuted ? 0.15 : 0.25) + Math.sin(t * floatSpeed + offset) * floatAmp;
-
-        // Scale up selected pin
         const targetScale = isSelected ? 1.35 : isMuted ? 0.7 : 1.0;
-        group.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.12);
+        group.scale.set(targetScale, targetScale, targetScale);
       });
 
       renderer.render(scene, camera);
@@ -1084,11 +1025,7 @@ function MapCanvas3D({
 
     return () => {
       cancelAnimationFrame(raf);
-      canvas.removeEventListener("mousemove", onMouseMove);
       canvas.removeEventListener("click", onClick);
-      canvas.removeEventListener("pointerdown", onDown);
-      window.removeEventListener("pointerup",   onUp);
-      window.removeEventListener("pointermove", onDrag);
       window.removeEventListener("resize", resize);
       renderer.dispose();
     };
@@ -1134,7 +1071,6 @@ function BranchMap() {
           filteredIds={filteredIds}
           onSelectBranch={chooseBranch}
         />
-        <div className="map-3d-hint">Drag to orbit · Click a pin</div>
       </div>
 
       <div className="locator-panel" data-reveal-item>
