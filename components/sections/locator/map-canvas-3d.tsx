@@ -301,12 +301,12 @@ export function MapCanvas3D({
       const aspect = w / h;
       camera.aspect = aspect;
 
-      const targetHeight = Math.max(12.2, 7.6 / (aspect || 1));
+      const targetHeight = Math.max(11.2, 7.2 / (aspect || 1));
       const fovRad = (camera.fov * Math.PI) / 360;
       const distance = (targetHeight / 2) / Math.tan(fovRad);
 
-      camera.position.set(0, -0.3, distance);
-      camera.lookAt(0, -0.1, 0);
+      camera.position.set(0, 0.35, distance);
+      camera.lookAt(0, 0.35, 0);
       camera.updateProjectionMatrix();
     };
     window.addEventListener("resize", resize, { passive: true });

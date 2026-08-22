@@ -71,12 +71,12 @@ export function CampaignSection() {
   const bgTransform = `translate(${mouseOffset.x * -20}px, ${mouseOffset.y * -12}px) scale(${1.05 + scrollProgress * 0.05})`;
   const sunTransform = `translate(${mouseOffset.x * -10}px, ${mouseOffset.y * -6}px) scale(${1 + scrollProgress * 0.03})`;
 
-  // Amplified Highway Travel Curve & Dynamic Distance
+  // Controlled, subtle Highway Travel (prevents overshooting the road)
   const travelEase = scrollProgress * scrollProgress * (3 - 2 * scrollProgress);
-  const carScrollX = travelEase * 320;
-  const carScrollY = travelEase * -185;
-  const carScale = Math.max(0.48, 1 - travelEase * 0.42);
-  const carCurveRotation = travelEase * -3.2; // rotates into the curve of the highway
+  const carScrollX = travelEase * 140;
+  const carScrollY = travelEase * -80;
+  const carScale = Math.max(0.78, 1 - travelEase * 0.18);
+  const carCurveRotation = travelEase * -1.8; // subtle rotation into the curve
 
   const carParallaxX = mouseOffset.x * 42;
   const carParallaxY = mouseOffset.y * 22;
@@ -93,9 +93,9 @@ export function CampaignSection() {
 
   return (
     <section className="campaign-section" id="why-tl" ref={visualRef}>
-      {/* Full-Bleed Interactive 2.5D Stage (100% Uncropped) */}
+      {/* 16:9 Uncropped Visual Stage */}
       <div className="campaign-visual-stage" aria-label="TL Mabuhay highway journey">
-        {/* Layer 0: High-Res Mountain & Sunset Horizon */}
+        {/* Layer 0: Mountain Landscape & Sunset Horizon */}
         <div className="layer-plate layer-bg" style={{ transform: bgTransform }}>
           <img
             src="/assets/campaign/tl-mabuhay-background.png"
@@ -115,7 +115,7 @@ export function CampaignSection() {
           <div className="car-dynamic-node" style={{ transform: carTransform }}>
             <div className="car-ground-shadow" />
             <img
-              src="/assets/campaign/tl-mabuhay-car.png"
+              src="/assets/campaign/tl-mabuhay-car-side-logo.png"
               alt="TL Mabuhay vehicle traveling safely on the highway"
               className="layer-car-img"
             />

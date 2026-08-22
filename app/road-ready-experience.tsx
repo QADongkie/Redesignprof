@@ -11,7 +11,6 @@ import { CoursesSection } from "@/components/sections/courses/courses-section";
 import { CampaignSection } from "@/components/sections/campaign-section";
 import { TimelineSection } from "@/components/sections/timeline-section";
 import { BranchLocatorSection } from "@/components/sections/locator/branch-locator-section";
-import { EnrollmentStepsSection } from "@/components/sections/enrollment-steps";
 import { FaqSection } from "@/components/sections/faq-section";
 import { FinalCtaSection } from "@/components/sections/final-cta-section";
 
@@ -40,7 +39,6 @@ export default function RoadReadyExperience() {
         <CampaignSection />
         <TimelineSection />
         <BranchLocatorSection />
-        <EnrollmentStepsSection />
         <FaqSection />
         <FinalCtaSection />
       </main>

@@ -1035,13 +1035,27 @@ summary:focus-visible,
 }
 
 @keyframes sun-pulse {
-  0% { transform: scale(0.95); opacity: 0.75; }
-  100% { transform: scale(1.08); opacity: 1; }
+  0% {
+    transform: scale(0.95);
+    opacity: 0.75;
+  }
+
+  100% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
 }
 
 @keyframes sun-ring-expand {
-  0% { transform: scale(0.96); opacity: 0.3; }
-  100% { transform: scale(1.06); opacity: 0.65; }
+  0% {
+    transform: scale(0.96);
+    opacity: 0.3;
+  }
+
+  100% {
+    transform: scale(1.06);
+    opacity: 0.65;
+  }
 }
 
 .layer-car-wrap {
@@ -1072,6 +1086,13 @@ summary:focus-visible,
   filter: blur(8px);
 }
 
+.car-graphic-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .layer-car-img {
   width: 100%;
   height: 100%;
@@ -1080,6 +1101,19 @@ summary:focus-visible,
   position: relative;
   z-index: 2;
   filter: drop-shadow(0 14px 28px rgba(0, 10, 26, 0.55));
+}
+
+.car-door-emblem {
+  position: absolute;
+  top: 59%;
+  left: 83.8%;
+  width: 8.4%;
+  aspect-ratio: 1;
+  transform: translateY(-50%) rotate(-3.5deg) skewY(-2deg);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 4;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
 }
 
 .tail-light-flare {
@@ -1097,8 +1131,15 @@ summary:focus-visible,
 }
 
 @keyframes tail-light-glow {
-  0% { opacity: 0.35; transform: scale(0.92); }
-  100% { opacity: 0.85; transform: scale(1.1); }
+  0% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+
+  100% {
+    opacity: 0.85;
+    transform: scale(1.1);
+  }
 }
 
 .campaign-hud-tag {
@@ -1206,93 +1247,187 @@ summary:focus-visible,
   transform: translateX(5px);
 }
 
-.timeline-section {
-  min-height: 760px;
-  overflow: hidden;
-  background: var(--cream);
-}
-
-.timeline {
+.timeline-section--night {
   position: relative;
-  min-height: 390px;
-  margin-top: 20px;
+  min-height: 720px;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 20%, #08214f 0%, #03112c 55%, #010714 100%);
+  color: white;
+  padding: 100px max(6vw, 42px) 120px;
 }
 
-.timeline>svg {
+.timeline-ambient-glow {
+  position: absolute;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 900px;
+  height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(41, 72, 157, 0.28) 0%, rgba(243, 182, 31, 0.12) 45%, transparent 75%);
+  pointer-events: none;
+  filter: blur(40px);
+}
+
+.timeline-heading p {
+  color: var(--gold);
+  font: 800 10px/1 "Manrope", sans-serif;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.timeline-heading h2 {
+  color: #ffffff;
+  font-size: clamp(44px, 4.4vw, 68px);
+  font-weight: 800;
+  line-height: .98;
+  letter-spacing: -.05em;
+  margin-top: 18px;
+}
+
+.timeline-heading span {
+  color: #b9cce6;
+  font-size: 15px;
+  line-height: 1.6;
+  margin-top: 12px;
+  display: block;
+}
+
+.timeline-expressway {
+  position: relative;
+  min-height: 460px;
+  margin-top: 48px;
+}
+
+.expressway-svg {
   position: absolute;
   inset: 50px 0 auto;
   width: 100%;
-  height: 230px;
+  height: 240px;
   overflow: visible;
 }
 
-.timeline-track,
-.timeline-route {
+.expressway-track-ambient,
+.expressway-track-main,
+.expressway-track-dashes {
   fill: none;
-  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.timeline-track {
-  stroke: #d5d1c7;
+.expressway-track-ambient {
+  stroke: rgba(243, 182, 31, 0.38);
+  stroke-width: 14;
 }
 
-.timeline-route {
-  stroke: var(--gold-deep);
+.expressway-track-main {
+  stroke: url(#expressway-gold-grad);
+  stroke-width: 3.5;
 }
 
-.timeline-item {
+.expressway-track-dashes {
+  stroke: #ffffff;
+  stroke-width: 2.5;
+  stroke-dasharray: 12 26;
+  animation: expressway-flow 2.8s linear infinite;
+  opacity: 0.9;
+}
+
+@keyframes expressway-flow {
+  to {
+    stroke-dashoffset: -76;
+  }
+}
+
+.timeline-card {
   position: absolute;
-  width: min(300px, 25vw);
-  padding-top: 23px;
-  border-top: 1px solid #b8b5ad;
+  width: min(340px, 28vw);
+  padding: 24px 24px 26px;
+  border-radius: 20px;
+  background: rgba(4, 21, 53, 0.82);
+  border: 1px solid rgba(243, 182, 31, 0.25);
+  box-shadow: 0 16px 40px rgba(0, 7, 20, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(14px);
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: 5;
+  transition: transform 240ms cubic-bezier(0.2, 0.9, 0.25, 1), border-color 240ms ease, box-shadow 240ms ease;
+  cursor: pointer;
 }
 
-.timeline-item::before {
-  content: "";
-  position: absolute;
-  top: -7px;
-  left: 0;
-  width: 13px;
-  height: 13px;
-  border: 3px solid var(--cream);
-  border-radius: 50%;
-  background: var(--gold-deep);
-  box-shadow: 0 0 0 1px var(--gold-deep);
+.timeline-card:hover,
+.timeline-card.is-hovered {
+  transform: translateY(-8px);
+  border-color: rgba(243, 182, 31, 0.65);
+  box-shadow: 0 24px 50px rgba(0, 7, 20, 0.8), 0 0 28px rgba(243, 182, 31, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
-.timeline-item--one {
-  left: 2.5%;
-  top: 185px;
+.timeline-card--one {
+  left: 1.5%;
+  top: 200px;
 }
 
-.timeline-item--two {
-  left: 38%;
-  top: 86px;
+.timeline-card--two {
+  left: 36%;
+  top: 110px;
 }
 
-.timeline-item--three {
-  right: 0;
-  top: 145px;
+.timeline-card--three {
+  right: 1.5%;
+  top: 170px;
 }
 
-.timeline-item>span {
-  color: var(--gold-deep);
-  font: 800 10px/1 "Manrope", sans-serif;
-  text-transform: uppercase;
+.milestone-badge-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.milestone-year-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 99px;
+  background: rgba(243, 182, 31, 0.16);
+  border: 1px solid rgba(243, 182, 31, 0.4);
+  color: var(--gold);
+  font: 800 11px/1 "Manrope", sans-serif;
+  letter-spacing: .08em;
+}
+
+.milestone-year-badge--today {
+  background: rgba(41, 72, 157, 0.35);
+  border-color: rgba(57, 95, 199, 0.6);
+  color: #7da5ff;
+}
+
+.milestone-year-badge--stat {
+  background: rgba(243, 182, 31, 0.22);
+  border-color: var(--gold);
+  color: #ffde7a;
+}
+
+.milestone-tag {
+  color: #8da4c4;
+  font: 800 8px/1 "Manrope", sans-serif;
   letter-spacing: .14em;
+  text-transform: uppercase;
 }
 
-.timeline-item h3 {
-  margin: 13px 0 9px;
-  font: 800 clamp(20px, 2vw, 28px)/1.12 "Manrope", sans-serif;
-  letter-spacing: -.04em;
+.timeline-card h3 {
+  margin: 0 0 10px;
+  font: 800 clamp(20px, 1.9vw, 26px)/1.15 "Manrope", sans-serif;
+  letter-spacing: -.03em;
+  color: #ffffff;
 }
 
-.timeline-item p {
+.timeline-card p {
   margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.55;
+  color: #b0c4df;
+  font-size: 13.5px;
+  line-height: 1.58;
 }
 
 /* Branch locator — 3-D map */
