@@ -242,7 +242,20 @@ export function ShowcaseCanvas({
 
             const matName = (mesh.material as THREE.Material)?.name || "";
 
-            if (
+            if (matName.includes("DECAL") || mesh.name.includes("DECAL")) {
+              // Preserve the TL Mabuhay hood logo decal and avoid z-fighting
+              const decalMat = mesh.material as THREE.MeshStandardMaterial;
+              if (decalMat) {
+                decalMat.transparent = true;
+                decalMat.depthWrite = true;
+                decalMat.polygonOffset = true;
+                decalMat.polygonOffsetFactor = -1.5;
+                decalMat.polygonOffsetUnits = -1.5;
+                decalMat.roughness = 0.45;
+                decalMat.metalness = 0.05;
+                decalMat.needsUpdate = true;
+              }
+            } else if (
               matName.includes("NISSANsentra") &&
               !matName.includes("plast") &&
               !matName.includes("luz") &&
