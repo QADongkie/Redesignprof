@@ -1,5 +1,6 @@
 import { ArrowIcon, CheckIcon } from "@/components/common/icons";
 import { courses } from "@/data/courses";
+import { CourseCardDiorama } from "@/components/sections/courses/course-card-diorama";
 
 export function CoursesSection() {
   return (
@@ -9,16 +10,21 @@ export function CoursesSection() {
         <h2 data-reveal-item>Learn the road.<br />Own the drive.</h2>
         <span data-reveal-item>Focused training for first-time applicants and returning drivers.</span>
       </div>
+
       <div className="course-grid" data-reveal>
         {courses.map((course, index) => (
           <article className="course-card" key={course.id} data-reveal-item>
-            <div>
+            <div className="course-card-header">
               <span>0{index + 1}</span>
               <small>{course.duration}</small>
             </div>
-            <p>{course.eyebrow}</p>
+
+            {/* 3D Micro-Diorama on each course card */}
+            <CourseCardDiorama courseId={course.id} />
+
+            <p className="course-card-eyebrow">{course.eyebrow}</p>
             <h3>{course.title}</h3>
-            <p>{course.description}</p>
+            <p className="course-card-desc">{course.description}</p>
             <ul>
               {course.outcomes.map((outcome) => (
                 <li key={outcome}>
@@ -27,8 +33,8 @@ export function CoursesSection() {
                 </li>
               ))}
             </ul>
-            <a href="https://tlmabuhay.com/courses">
-              View course details <ArrowIcon />
+            <a href="https://tlmabuhay.com/enroll">
+              Enroll now <ArrowIcon />
             </a>
           </article>
         ))}

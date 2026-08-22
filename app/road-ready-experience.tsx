@@ -8,7 +8,6 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { HeroSection } from "@/components/sections/hero/hero-section";
 import { TrustStrip } from "@/components/sections/trust-strip";
 import { CoursesSection } from "@/components/sections/courses/courses-section";
-import { CoursePlannerSection } from "@/components/sections/courses/course-planner";
 import { CampaignSection } from "@/components/sections/campaign-section";
 import { TimelineSection } from "@/components/sections/timeline-section";
 import { BranchLocatorSection } from "@/components/sections/locator/branch-locator-section";
@@ -38,7 +37,6 @@ export default function RoadReadyExperience() {
         <HeroSection onSceneReady={handleSceneReady} />
         <TrustStrip />
         <CoursesSection />
-        <CoursePlannerSection />
         <CampaignSection />
         <TimelineSection />
         <BranchLocatorSection />

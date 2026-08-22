@@ -3,90 +3,136 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
-const clamp = (value: number, min = 0, max = 1) =>
-  Math.min(max, Math.max(min, value));
+interface ShowcaseCanvasProps {
+  onReady: (ready: boolean) => void;
+}
 
-function createShadowTexture() {
+function createFallbackAcademyCar(): THREE.Group {
+  const group = new THREE.Group();
+
+  const bodyMat = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(0x102b66),
+    metalness: 0.88,
+    roughness: 0.18,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.08,
+  });
+
+  const glassMat = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(0x0d2038),
+    transmission: 0.85,
+    transparent: true,
+    opacity: 0.88,
+    roughness: 0.05,
+  });
+
+  const trimMat = new THREE.MeshStandardMaterial({
+    color: 0x11161f,
+    roughness: 0.7,
+    metalness: 0.3,
+  });
+
+  const goldMat = new THREE.MeshStandardMaterial({
+    color: 0xf3b61f,
+    metalness: 0.85,
+    roughness: 0.22,
+  });
+
+  // Base chassis
+  const chassis = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.62, 1.82), bodyMat);
+  chassis.position.y = 0.58;
+  chassis.castShadow = true;
+  chassis.receiveShadow = true;
+  group.add(chassis);
+
+  // Cabin
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.35, 0.72, 1.58), glassMat);
+  cabin.position.set(-0.18, 1.15, 0);
+  cabin.castShadow = true;
+  group.add(cabin);
+
+  // Roof
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.08, 1.52), bodyMat);
+  roof.position.set(-0.18, 1.53, 0);
+  roof.castShadow = true;
+  group.add(roof);
+
+  // Hood badge
+  const badge = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.03, 24), goldMat);
+  badge.position.set(1.68, 0.91, 0);
+  badge.rotation.z = -Math.PI / 12;
+  group.add(badge);
+
+  // Headlights
+  const lightMat = new THREE.MeshStandardMaterial({
+    color: 0xfffbee,
+    emissive: 0xffeaad,
+    emissiveIntensity: 3.5,
+  });
+  const headlightL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.18, 0.34), lightMat);
+  headlightL.position.set(2.05, 0.68, 0.62);
+  group.add(headlightL);
+
+  const headlightR = headlightL.clone();
+  headlightR.position.z = -0.62;
+  group.add(headlightR);
+
+  // Wheels
+  const wheelGeom = new THREE.CylinderGeometry(0.38, 0.38, 0.28, 32);
+  wheelGeom.rotateZ(Math.PI / 2);
+  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x14181f, roughness: 0.85 });
+
+  const wheelPositions = [
+    [1.32, 0.38, 0.94],
+    [1.32, 0.38, -0.94],
+    [-1.32, 0.38, 0.94],
+    [-1.32, 0.38, -0.94],
+  ];
+
+  wheelPositions.forEach(([x, y, z]) => {
+    const wheel = new THREE.Mesh(wheelGeom, wheelMat);
+    wheel.position.set(x, y, z);
+    wheel.castShadow = true;
+    group.add(wheel);
+
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.3, 16), trimMat);
+    rim.rotateZ(Math.PI / 2);
+    rim.position.set(x, y, z);
+    group.add(rim);
+  });
+
+  return group;
+}
+
+function createShadowTexture(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 512;
   const ctx = canvas.getContext("2d");
-  if (!ctx) return new THREE.CanvasTexture(canvas);
-  const grad = ctx.createRadialGradient(256, 256, 40, 256, 256, 240);
-  grad.addColorStop(0, "rgba(0, 7, 16, 0.95)");
-  grad.addColorStop(0.35, "rgba(0, 10, 22, 0.6)");
-  grad.addColorStop(0.7, "rgba(0, 12, 26, 0.2)");
-  grad.addColorStop(1, "rgba(0, 12, 26, 0)");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 512, 512);
+  if (ctx) {
+    const gradient = ctx.createRadialGradient(256, 256, 40, 256, 256, 240);
+    gradient.addColorStop(0, "rgba(2, 8, 24, 0.92)");
+    gradient.addColorStop(0.35, "rgba(5, 18, 48, 0.72)");
+    gradient.addColorStop(0.65, "rgba(10, 32, 80, 0.32)");
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 512, 512);
+  }
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 
-function createFallbackAcademyCar() {
-  const car = new THREE.Group();
-  const paint = new THREE.MeshPhysicalMaterial({
-    color: 0x082d50,
-    metalness: 0.82,
-    roughness: 0.2,
-    clearcoat: 1,
-  });
-  const glass = new THREE.MeshPhysicalMaterial({
-    color: 0x102d43,
-    transmission: 0.4,
-    transparent: true,
-    opacity: 0.9,
-    roughness: 0.08,
-  });
-  const tire = new THREE.MeshStandardMaterial({ color: 0x050608, roughness: 0.82 });
-  const rim = new THREE.MeshStandardMaterial({ color: 0x80909c, metalness: 0.9, roughness: 0.18 });
-
-  const body = new THREE.Mesh(new RoundedBoxGeometry(2.08, 0.6, 4.48, 6, 0.16), paint);
-  body.position.y = 0.61;
-  body.castShadow = true;
-  car.add(body);
-
-  const cabin = new THREE.Mesh(new RoundedBoxGeometry(1.66, 0.72, 1.95, 6, 0.18), glass);
-  cabin.position.set(0, 1.32, 0.18);
-  cabin.castShadow = true;
-  car.add(cabin);
-
-  const wheelGeometry = new THREE.CylinderGeometry(0.42, 0.42, 0.28, 32);
-  const rimGeometry = new THREE.CylinderGeometry(0.22, 0.22, 0.292, 18);
-  ([
-    [-1.05, 0.48, -1.38],
-    [1.05, 0.48, -1.38],
-    [-1.05, 0.48, 1.38],
-    [1.05, 0.48, 1.38],
-  ] as const).forEach(([x, y, z]) => {
-    const wheel = new THREE.Mesh(wheelGeometry, tire);
-    wheel.rotation.z = Math.PI / 2;
-    wheel.position.set(x, y, z);
-    wheel.castShadow = true;
-    const wheelRim = new THREE.Mesh(rimGeometry, rim);
-    wheelRim.rotation.z = Math.PI / 2;
-    wheel.add(wheelRim);
-    car.add(wheel);
-  });
-
-  return car;
-}
-
-export function ShowcaseCanvas({
-  onReady,
-}: {
-  onReady: (ready: boolean) => void;
-}) {
+export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
 
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({
@@ -103,86 +149,97 @@ export function ShowcaseCanvas({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.18;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x021120);
-    scene.fog = new THREE.FogExp2(0x021120, 0.024);
+    scene.background = new THREE.Color(0x040e22);
+    scene.fog = new THREE.FogExp2(0x040e22, 0.024);
 
-    const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 120);
-    camera.position.set(4.8, 1.95, 5.2);
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 120);
+    camera.position.set(4.7, 1.85, 4.7);
+    camera.lookAt(1.65, 0.45, 0);
 
-    // Studio lighting
-    scene.add(new THREE.HemisphereLight(0xdcecf8, 0x010c17, 1.8));
+    // Studio lighting with TL Mabuhay Royal Blue & Gold Brand Harmony
+    scene.add(new THREE.AmbientLight(0xffffff, 1.6));
+    scene.add(new THREE.HemisphereLight(0xe8f0fa, 0x0a1d44, 2.2));
 
-    const keyLight = new THREE.DirectionalLight(0xfffaec, 3.8);
-    keyLight.position.set(-6, 13, 7);
+    const keyLight = new THREE.DirectionalLight(0xfffaec, 4.6);
+    keyLight.position.set(-2, 14, 8);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(2048, 2048);
-    keyLight.shadow.camera.left = -5;
-    keyLight.shadow.camera.right = 5;
-    keyLight.shadow.camera.top = 5;
-    keyLight.shadow.camera.bottom = -5;
-    keyLight.shadow.bias = -0.0004;
+    keyLight.shadow.camera.left = -6;
+    keyLight.shadow.camera.right = 6;
+    keyLight.shadow.camera.top = 6;
+    keyLight.shadow.camera.bottom = -6;
+    keyLight.shadow.bias = -0.0001;
+    keyLight.shadow.normalBias = 0.02;
     scene.add(keyLight);
 
-    const goldRimLight = new THREE.DirectionalLight(0xf3b61f, 3.4);
+    const frontFillLight = new THREE.DirectionalLight(0xdbeafe, 2.8);
+    frontFillLight.position.set(6, 6, 8);
+    scene.add(frontFillLight);
+
+    const goldRimLight = new THREE.DirectionalLight(0xf3b61f, 3.6);
     goldRimLight.position.set(10, 5, -8);
     scene.add(goldRimLight);
 
-    const cyanRimLight = new THREE.DirectionalLight(0x38bdf8, 2.6);
-    cyanRimLight.position.set(-9, 4, -9);
-    scene.add(cyanRimLight);
+    // Signature TL Mabuhay Royal Blue Rim Light
+    const royalBlueRim = new THREE.DirectionalLight(0x29489d, 4.0);
+    royalBlueRim.position.set(-9, 4, -9);
+    scene.add(royalBlueRim);
 
-    const floorBounce = new THREE.PointLight(0x0a3254, 2.2, 12);
-    floorBounce.position.set(0, 0.2, 0);
+    // Royal Blue Studio Floor Bounce
+    const floorBounce = new THREE.PointLight(0x244eb8, 3.2, 16);
+    floorBounce.position.set(1.65, 0.3, 0);
     scene.add(floorBounce);
 
-    // Studio Stage / Turntable Platform
+    // Studio Stage / Turntable Platform positioned in open right half
     const platformGroup = new THREE.Group();
+    platformGroup.position.set(1.65, 0, 0);
     scene.add(platformGroup);
 
     const stageMat = new THREE.MeshStandardMaterial({
-      color: 0x051a2d,
+      color: 0x0a1e42,
       metalness: 0.88,
       roughness: 0.28,
     });
-    const stageDisc = new THREE.Mesh(new THREE.CylinderGeometry(4.7, 4.7, 0.14, 64), stageMat);
+    const stageDisc = new THREE.Mesh(new THREE.CylinderGeometry(3.9, 3.9, 0.14, 64), stageMat);
     stageDisc.position.y = -0.07;
     stageDisc.receiveShadow = true;
     platformGroup.add(stageDisc);
 
     const outerRing = new THREE.Mesh(
-      new THREE.TorusGeometry(4.72, 0.035, 16, 96),
+      new THREE.TorusGeometry(3.92, 0.035, 16, 96),
       new THREE.MeshBasicMaterial({ color: 0xf3b61f })
     );
     outerRing.rotation.x = Math.PI / 2;
-    outerRing.position.y = 0.002;
+    outerRing.position.y = 0.005;
     platformGroup.add(outerRing);
 
+    // Inner Ring: Official TL Mabuhay Royal Blue (Glowing)
     const innerRing = new THREE.Mesh(
-      new THREE.TorusGeometry(3.6, 0.02, 16, 96),
-      new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+      new THREE.TorusGeometry(2.9, 0.026, 16, 96),
+      new THREE.MeshBasicMaterial({ color: 0x395fc7 })
     );
     innerRing.rotation.x = Math.PI / 2;
-    innerRing.position.y = 0.002;
+    innerRing.position.y = 0.005;
     platformGroup.add(innerRing);
 
     // Engineering dial notches
-    const tickMat = new THREE.MeshBasicMaterial({ color: 0x6e93b2 });
+    const tickMat = new THREE.MeshBasicMaterial({ color: 0x6088d4 });
     for (let i = 0; i < 8; i += 1) {
       const angle = (i / 8) * Math.PI * 2;
-      const tick = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.005, 0.45), tickMat);
-      tick.position.set(Math.sin(angle) * 4.15, 0.003, Math.cos(angle) * 4.15);
+      const tick = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.006, 0.42), tickMat);
+      tick.position.set(Math.sin(angle) * 3.42, 0.006, Math.cos(angle) * 3.42);
       tick.rotation.y = angle;
       platformGroup.add(tick);
     }
 
     // Shadow plane
     const shadowMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(10.5, 10.5),
+      new THREE.PlaneGeometry(8.5, 8.5),
       new THREE.MeshBasicMaterial({
         map: createShadowTexture(),
         transparent: true,
@@ -191,20 +248,20 @@ export function ShowcaseCanvas({
       })
     );
     shadowMesh.rotation.x = -Math.PI / 2;
-    shadowMesh.position.y = 0.005;
+    shadowMesh.position.y = 0.008;
     platformGroup.add(shadowMesh);
 
-    // Studio floor
+    // Studio floor sits safely underneath the turntable platform
     const floorMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(160, 160),
       new THREE.MeshStandardMaterial({
-        color: 0x010912,
+        color: 0x030b1a,
         roughness: 0.45,
         metalness: 0.6,
       })
     );
     floorMesh.rotation.x = -Math.PI / 2;
-    floorMesh.position.y = -0.075;
+    floorMesh.position.y = -0.14;
     floorMesh.receiveShadow = true;
     scene.add(floorMesh);
 
@@ -223,7 +280,7 @@ export function ShowcaseCanvas({
         box.getSize(size);
 
         const maxDim = Math.max(size.x, size.z);
-        const scale = 4.45 / (maxDim || 1);
+        const scale = 4.15 / (maxDim || 1);
         model.scale.setScalar(scale);
 
         const scaledBox = new THREE.Box3().setFromObject(model);
@@ -243,14 +300,13 @@ export function ShowcaseCanvas({
             const matName = (mesh.material as THREE.Material)?.name || "";
 
             if (matName.includes("DECAL") || mesh.name.includes("DECAL")) {
-              // Preserve the TL Mabuhay hood logo decal and avoid z-fighting
               const decalMat = mesh.material as THREE.MeshStandardMaterial;
               if (decalMat) {
                 decalMat.transparent = true;
-                decalMat.depthWrite = true;
+                decalMat.depthWrite = false;
                 decalMat.polygonOffset = true;
-                decalMat.polygonOffsetFactor = -1.5;
-                decalMat.polygonOffsetUnits = -1.5;
+                decalMat.polygonOffsetFactor = -2;
+                decalMat.polygonOffsetUnits = -2;
                 decalMat.roughness = 0.45;
                 decalMat.metalness = 0.05;
                 decalMat.needsUpdate = true;
@@ -263,8 +319,8 @@ export function ShowcaseCanvas({
               !matName.includes("int")
             ) {
               mesh.material = new THREE.MeshPhysicalMaterial({
-                color: new THREE.Color(0x082945),
-                metalness: 0.84,
+                color: new THREE.Color(0x0e2759),
+                metalness: 0.86,
                 roughness: 0.2,
                 clearcoat: 1.0,
                 clearcoatRoughness: 0.1,
@@ -272,7 +328,7 @@ export function ShowcaseCanvas({
               });
             } else if (matName.includes("glass")) {
               mesh.material = new THREE.MeshPhysicalMaterial({
-                color: new THREE.Color(0x0c2032),
+                color: new THREE.Color(0x0a1d36),
                 transmission: 0.82,
                 transparent: true,
                 opacity: 0.88,
@@ -333,86 +389,89 @@ export function ShowcaseCanvas({
       }
     );
 
-    // Interaction & Animation State
-    let raf = 0;
-    let lastWidth = 0;
-    let lastHeight = 0;
-
+    // Interactive mouse drag and inertia
     let isDragging = false;
-    let dragStartX = 0;
-    let dragStartY = 0;
-    let turntableAngle = 0.35;
-    let turntableVelocity = 0;
-    let manualPitch = 0;
-
-    const cameraPos = new THREE.Vector3(4.8, 1.95, 5.2);
-    const lookTarget = new THREE.Vector3(0, 0.72, 0);
+    let prevMouseX = 0;
+    let rotationVelocity = 0;
+    let targetRotation = -0.35;
+    let autoRotate = true;
 
     const onPointerDown = (e: PointerEvent) => {
       isDragging = true;
-      dragStartX = e.clientX;
-      dragStartY = e.clientY;
+      prevMouseX = e.clientX;
+      autoRotate = false;
     };
 
     const onPointerMove = (e: PointerEvent) => {
       if (!isDragging) return;
-      const dx = e.clientX - dragStartX;
-      const dy = e.clientY - dragStartY;
-      dragStartX = e.clientX;
-      dragStartY = e.clientY;
-
-      turntableVelocity = dx * 0.006;
-      turntableAngle += dx * 0.006;
-      manualPitch = clamp(manualPitch - dy * 0.003, -0.25, 0.4);
+      const deltaX = e.clientX - prevMouseX;
+      prevMouseX = e.clientX;
+      rotationVelocity = deltaX * 0.005;
+      targetRotation += rotationVelocity;
     };
 
     const onPointerUp = () => {
       isDragging = false;
     };
 
-    const resize = () => {
-      const width = canvas.clientWidth;
-      const height = canvas.clientHeight;
-      if (!width || !height || (width === lastWidth && height === lastHeight)) return;
-      lastWidth = width;
-      lastHeight = height;
-      renderer.setSize(width, height, false);
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-    };
-
-    const render = () => {
-      resize();
-
-      if (!isDragging) {
-        turntableVelocity *= 0.92;
-        turntableAngle += turntableVelocity + (reduced ? 0 : 0.0045);
-      }
-
-      carHolder.rotation.y = turntableAngle;
-
-      camera.position.set(cameraPos.x, cameraPos.y + manualPitch, cameraPos.z);
-      camera.lookAt(lookTarget);
-
-      renderer.render(scene, camera);
-      raf = window.requestAnimationFrame(render);
-    };
-
-    window.addEventListener("resize", resize, { passive: true });
-    canvas.addEventListener("pointerdown", onPointerDown);
+    container.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
-    raf = window.requestAnimationFrame(render);
+
+    // Resize handling
+    let animationFrameId: number;
+
+    const handleResize = () => {
+      if (!canvas || !container) return;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      if (!width || !height) return;
+
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height, false);
+    };
+
+    window.addEventListener("resize", handleResize);
+    handleResize();
+
+    // Render loop
+    const clock = new THREE.Clock();
+
+    const animate = () => {
+      animationFrameId = requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+
+      if (autoRotate && !isDragging) {
+        platformGroup.rotation.y += delta * 0.22;
+      } else {
+        platformGroup.rotation.y += (targetRotation - platformGroup.rotation.y) * 0.1;
+        rotationVelocity *= 0.92;
+        targetRotation += rotationVelocity;
+
+        if (Math.abs(rotationVelocity) < 0.0001 && !isDragging) {
+          autoRotate = true;
+        }
+      }
+
+      renderer.render(scene, camera);
+    };
+
+    animate();
 
     return () => {
-      window.cancelAnimationFrame(raf);
-      window.removeEventListener("resize", resize);
-      canvas.removeEventListener("pointerdown", onPointerDown);
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener("resize", handleResize);
+      container.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       renderer.dispose();
     };
   }, [onReady]);
 
-  return <canvas ref={canvasRef} className="driving-canvas" aria-label="3D Rotating Training Vehicle" />;
+  return (
+    <div ref={containerRef} className="showcase-canvas-container" aria-label="3D Nissan Sentra interactive showcase">
+      <canvas ref={canvasRef} className="showcase-canvas" />
+    </div>
+  );
 }

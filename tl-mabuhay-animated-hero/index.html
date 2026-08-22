@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#00152a">
+  <title>TL Mabuhay — Animated Hero</title>
+  <style>
+    :root {
+      --navy: #00152a;
+      --gold: #ffc400;
+      --cream: #fff8e9
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html,
+    body {
+      margin: 0;
+      background: var(--navy);
+      font-family: Arial, Helvetica, sans-serif
+    }
+
+    .hero {
+      height: 175vh;
+      position: relative;
+      background: var(--navy)
+    }
+
+    .stage {
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      overflow: hidden;
+      background: #00152a;
+      isolation: isolate
+    }
+
+    #hero-object {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      position: absolute;
+      inset: 0
+    }
+
+    .intro {
+      position: absolute;
+      z-index: 20;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: #00152a;
+      transition: opacity .65s cubic-bezier(.2, .8, .2, 1), visibility .65s
+    }
+
+    .intro::before {
+      content: "";
+      position: absolute;
+      inset: -30%;
+      background:
+        linear-gradient(115deg, transparent 43%, rgba(255, 196, 0, .06) 43.3%, rgba(255, 196, 0, .06) 48%, transparent 48.3%);
+      animation: road-wipe 1.45s cubic-bezier(.22, .78, .25, 1) both
+    }
+
+    .intro.gone {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none
+    }
+
+    .intro-lockup {
+      text-align: center;
+      color: white;
+      position: relative;
+      padding: 32px
+    }
+
+    .intro-logo {
+      width: clamp(92px, 10vw, 148px);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      display: block;
+      margin: 0 auto 25px;
+      box-shadow: 0 0 0 1px rgba(255, 196, 0, .7), 0 0 70px rgba(255, 196, 0, .24);
+      animation: logo-in .8s .12s both cubic-bezier(.2, .9, .25, 1.25)
+    }
+
+    .intro-name {
+      font-size: clamp(22px, 3.2vw, 48px);
+      font-weight: 900;
+      letter-spacing: .12em;
+      margin: 0
+    }
+
+    .intro-sub {
+      font-size: clamp(9px, 1vw, 13px);
+      font-weight: 800;
+      letter-spacing: .28em;
+      color: var(--gold);
+      margin: 10px 0 0
+    }
+
+    .intro-line {
+      height: 2px;
+      width: 0;
+      background: var(--gold);
+      margin: 24px auto 0;
+      animation: line-in .75s .55s forwards
+    }
+
+    .scroll-cue {
+      position: absolute;
+      z-index: 5;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .25em;
+      opacity: .72;
+      display: flex;
+      gap: 10px;
+      align-items: center
+    }
+
+    .scroll-cue::before {
+      content: "";
+      width: 34px;
+      height: 1px;
+      background: var(--gold)
+    }
+
+    .skip {
+      position: absolute;
+      right: 28px;
+      top: 24px;
+      z-index: 25;
+      border: 0;
+      background: transparent;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .18em;
+      padding: 10px;
+      cursor: pointer;
+      opacity: .66
+    }
+
+    @keyframes logo-in {
+      from {
+        opacity: 0;
+        transform: scale(.55) rotate(-10deg)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    @keyframes line-in {
+      to {
+        width: 160px
+      }
+    }
+
+    @keyframes road-wipe {
+      from {
+        transform: translateX(-22%)
+      }
+
+      to {
+        transform: translateX(22%)
+      }
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+
+      .intro::before,
+      .intro-logo,
+      .intro-line {
+        animation: none
+      }
+
+      .intro-line {
+        width: 160px
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="hero" id="hero">
+    <div class="stage" id="stage">
+      <div class="intro" id="intro" aria-label="TL Mabuhay intro">
+        <button class="skip" id="skip" type="button">SKIP INTRO</button>
+        <div class="intro-lockup">
+          <img class="intro-logo" src="tl-mabuhay-emblem.png" alt="TL Mabuhay emblem">
+          <p class="intro-name">TL MABUHAY</p>
+          <p class="intro-sub">DRIVING LESSON ACADEMY, INC.</p>
+          <div class="intro-line"></div>
+        </div>
+      </div>
+      <object id="hero-object" data="tl-mabuhay-layered-hero.svg" type="image/svg+xml"
+        aria-label="TL Mabuhay Driving Lesson Academy animated hero"></object>
+      <div class="scroll-cue">SCROLL TO CONTINUE</div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script>
+    const hero = document.querySelector('#hero');
+    const stage = document.querySelector('#stage');
+    const object = document.querySelector('#hero-object');
+    const intro = document.querySelector('#intro');
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let scene = null;
+
+    function closeIntro() { intro.classList.add('gone') }
+    document.querySelector('#skip').addEventListener('click', closeIntro);
+    setTimeout(closeIntro, reduceMotion ? 350 : 2300);
+
+    object.addEventListener('load', () => {
+      const doc = object.contentDocument;
+      if (!doc) return;
+      const byId = id => doc.getElementById(id);
+      scene = {
+        background: byId('background-parallax'), sun: byId('sun-halo-layer'), ring: byId('sun-ring'),
+        atmosphere: byId('atmosphere-layer'), copy: byId('copy-layer'), eyebrow: byId('copy-eyebrow'),
+        title: byId('copy-title'), subtitle: byId('copy-subtitle'), accent: byId('copy-accent'),
+        carScroll: byId('car-scroll-layer'), carParallax: byId('car-parallax-layer'),
+        carArrival: byId('car-arrival-layer'), tail: byId('tail-light-glow'), tag: byId('route-tag')
+      };
+
+      if (typeof anime === 'function' && !reduceMotion) {
+        anime.set([scene.eyebrow, scene.title, scene.subtitle, scene.accent], { opacity: 0, translateY: 28 });
+        anime.set(scene.carArrival, { opacity: 0, translateX: 260, translateY: 96, scale: .76 });
+        anime.set(scene.tag, { opacity: 0, translateX: 22 });
+        anime.timeline({ easing: 'easeOutExpo' })
+          .add({ targets: scene.eyebrow, opacity: [0, 1], translateY: [18, 0], duration: 720 }, 1800)
+          .add({ targets: scene.title, opacity: [0, 1], translateY: [36, 0], duration: 930 }, '-=420')
+          .add({ targets: scene.subtitle, opacity: [0, 1], translateY: [20, 0], duration: 760 }, '-=560')
+          .add({ targets: scene.accent, opacity: [0, 1], translateY: [10, 0], duration: 620 }, '-=520')
+          .add({ targets: scene.carArrival, opacity: [0, 1], translateX: [260, 0], translateY: [96, 0], scale: [.76, 1], duration: 1450 }, '-=990')
+          .add({ targets: scene.tag, opacity: [0, 1], translateX: [22, 0], duration: 680 }, '-=520');
+        anime({ targets: scene.ring, scale: [1, 1.075], opacity: [.42, .08], duration: 2200, direction: 'alternate', loop: true, easing: 'easeInOutSine' });
+        anime({ targets: scene.tail, opacity: [.10, .28], scale: [.96, 1.08], duration: 900, direction: 'alternate', loop: true, easing: 'easeInOutSine' });
+        setTimeout(() => anime({ targets: scene.carArrival, translateY: [0, -4], rotate: [-.12, .12], duration: 1800, direction: 'alternate', loop: true, easing: 'easeInOutSine' }), 3350);
+      }
+      updateScroll();
+    });
+
+    stage.addEventListener('pointermove', event => {
+      if (!scene || reduceMotion || typeof anime !== 'function') return;
+      const rect = stage.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width - .5;
+      const y = (event.clientY - rect.top) / rect.height - .5;
+      anime({ targets: scene.background, translateX: x * -14, translateY: y * -8, duration: 900, easing: 'easeOutQuad' });
+      anime({ targets: scene.sun, translateX: x * -7, translateY: y * -4, duration: 900, easing: 'easeOutQuad' });
+      anime({ targets: scene.carParallax, translateX: x * 19, translateY: y * 9, duration: 700, easing: 'easeOutQuad' });
+    });
+
+    function updateScroll() {
+      if (!scene) return;
+      const rect = hero.getBoundingClientRect();
+      const range = hero.offsetHeight - innerHeight;
+      const p = Math.max(0, Math.min(1, -rect.top / range));
+      scene.carScroll.style.transformOrigin = '67% 69%';
+      scene.carScroll.style.transform = `translate(${p * 245}px,${p * -135}px) scale(${1 - p * .29})`;
+      scene.copy.style.opacity = String(Math.max(0, 1 - p * 1.75));
+      scene.copy.style.transform = `translateY(${p * -54}px)`;
+      scene.background.style.transformOrigin = '50% 50%';
+      scene.background.style.transform = `scale(${1 + p * .035})`;
+      scene.atmosphere.style.opacity = String(.7 + p * .22);
+    }
+    addEventListener('scroll', updateScroll, { passive: true });
+    addEventListener('resize', updateScroll);
+  </script>
+</body>
+
+</html>
