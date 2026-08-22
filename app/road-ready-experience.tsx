@@ -836,40 +836,72 @@ function MapCanvas3D({
     goldAccent.position.set(-6, -6, 6);
     scene.add(goldAccent);
 
-    // ── Root container for the map and pins ───────────────────────────────────
+    // ── Root container for the map and pins with 3D isometric perspective ────
     const mapGroup = new THREE.Group();
+    // 3D tilt so the extruded island relief, side bevels, and elevation layers pop
+    mapGroup.rotation.x = 0.38;
+    mapGroup.rotation.y = -0.16;
+    mapGroup.rotation.z = 0.02;
     scene.add(mapGroup);
 
+    // ── 3-Point Studio Lighting for Rich 3D Depth & Shadows ──────────────────
+    scene.add(new THREE.HemisphereLight(0xe0f2fe, 0x010b17, 1.8));
+
+    // Key light (top-left) casting crisp 3D island drop shadows
+    const keyLight = new THREE.DirectionalLight(0xfff5e6, 3.2);
+    keyLight.position.set(-7, 14, 16);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.bias = -0.0002;
+    keyLight.shadow.radius = 2.5;
+    scene.add(keyLight);
+
+    // Golden rim light (right) highlighting 3D extruded side walls
+    const goldRim = new THREE.DirectionalLight(0xf3b61f, 2.2);
+    goldRim.position.set(10, -4, 10);
+    scene.add(goldRim);
+
+    // Cyan fill light (bottom-left) for deep architectural contrast
+    const cyanFill = new THREE.DirectionalLight(0x38bdf8, 1.6);
+    cyanFill.position.set(-9, -8, 8);
+    scene.add(cyanFill);
+
     // ── Pin materials & geometry ──────────────────────────────────────────────
-    const pinGeo = new THREE.SphereGeometry(0.12, 20, 20);
-    const stalkGeo = new THREE.CylinderGeometry(0.024, 0.024, 0.35, 12);
-    const ringGeo = new THREE.TorusGeometry(0.16, 0.022, 12, 32);
+    const pinGeo = new THREE.SphereGeometry(0.13, 24, 24);
+    const stalkGeo = new THREE.CylinderGeometry(0.026, 0.026, 0.42, 14);
+    const ringGeo = new THREE.TorusGeometry(0.18, 0.024, 14, 36);
 
     const matSelected = new THREE.MeshPhysicalMaterial({
       color: 0xf3b61f,
       emissive: 0xf3b61f,
-      emissiveIntensity: 1.8,
-      metalness: 0.3,
-      roughness: 0.15,
+      emissiveIntensity: 2.0,
+      metalness: 0.35,
+      roughness: 0.12,
       clearcoat: 1.0,
+      clearcoatRoughness: 0.1,
     });
-    const matDefault = new THREE.MeshStandardMaterial({
+    const matDefault = new THREE.MeshPhysicalMaterial({
       color: 0x38bdf8,
-      emissive: 0x38bdf8,
-      emissiveIntensity: 0.8,
-      metalness: 0.2,
-      roughness: 0.3,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.9,
+      metalness: 0.25,
+      roughness: 0.22,
+      clearcoat: 0.8,
     });
     const matMuted = new THREE.MeshStandardMaterial({
-      color: 0x1e3a50,
-      emissive: 0x0f2030,
+      color: 0x162c3d,
+      emissive: 0x0c1b26,
       emissiveIntensity: 0.15,
       metalness: 0.1,
-      roughness: 0.7,
+      roughness: 0.8,
       transparent: true,
       opacity: 0.35,
     });
-    const stalkMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.7, roughness: 0.2 });
+    const stalkMat = new THREE.MeshStandardMaterial({
+      color: 0xe2e8f0,
+      metalness: 0.9,
+      roughness: 0.18,
+    });
 
     const pinMeshes: Array<{ id: string; group: THREE.Group; head: THREE.Mesh; ring: THREE.Mesh }> = [];
     const clickTargets: Array<{ mesh: THREE.Mesh; id: string }> = [];
@@ -887,17 +919,25 @@ function MapCanvas3D({
         box.getCenter(center);
         model.position.sub(center);
 
+        // Enhance materials with 3D physical sheen & shadows
         model.traverse((child) => {
           if ((child as THREE.Mesh).isMesh) {
             const mesh = child as THREE.Mesh;
             mesh.castShadow = true;
             mesh.receiveShadow = true;
+
+            const existingMat = mesh.material as THREE.MeshStandardMaterial;
+            if (existingMat) {
+              existingMat.roughness = 0.38;
+              existingMat.metalness = 0.15;
+              existingMat.needsUpdate = true;
+            }
           }
         });
 
         mapGroup.add(model);
 
-        // Build pins attached directly to each anchor position
+        // Build 3D pins attached directly to each island anchor
         branches.forEach((branch) => {
           const anchorConfig = PIN_ANCHORS[branch.id];
           if (!anchorConfig) return;
@@ -911,28 +951,28 @@ function MapCanvas3D({
           const group = new THREE.Group();
           group.position.copy(pinPos);
 
-          // Stalk extends outward along +Z (towards viewer)
+          // Stalk extends outward along +Z (perpendicular to map face)
           const stalk = new THREE.Mesh(stalkGeo, stalkMat);
           stalk.rotation.x = Math.PI / 2;
-          stalk.position.z = 0.18;
+          stalk.position.z = 0.21;
           stalk.castShadow = true;
           group.add(stalk);
 
-          // Pin head floats at the top of stalk
+          // Pin head floats above the stalk with specular glint
           const head = new THREE.Mesh(pinGeo, matDefault.clone());
-          head.position.z = 0.42;
+          head.position.z = 0.46;
           head.castShadow = true;
           group.add(head);
 
-          // Base ring sits on the island surface
+          // Base ring rests on the island surface
           const ring = new THREE.Mesh(ringGeo, matDefault.clone());
-          ring.position.z = 0.04;
+          ring.position.z = 0.05;
           group.add(ring);
 
           // Invisible larger hit area for seamless clicking
-          const hitGeo = new THREE.SphereGeometry(0.4, 12, 12);
+          const hitGeo = new THREE.SphereGeometry(0.42, 12, 12);
           const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
-          hitMesh.position.z = 0.35;
+          hitMesh.position.z = 0.38;
           group.add(hitMesh);
           clickTargets.push({ mesh: hitMesh, id: branch.id });
 
@@ -946,31 +986,101 @@ function MapCanvas3D({
       }
     );
 
-    // ── Raycaster for click detection ─────────────────────────────────────────
+    // ── Interactive Mouse / Cursor Drag & Tilt ───────────────────────────────
+    const BASE_ROT_X = 0.38;
+    const BASE_ROT_Y = -0.16;
+    let targetRotX = BASE_ROT_X;
+    let targetRotY = BASE_ROT_Y;
+    let currentRotX = BASE_ROT_X;
+    let currentRotY = BASE_ROT_Y;
+
+    let isPointerDown = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let dragLastX = 0;
+    let dragLastY = 0;
+    let hasDragged = false;
+    let isHoveringPin = false;
+
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
 
-    const getPointerNDC = (e: MouseEvent | TouchEvent) => {
+    const getPointerNDC = (clientX: number, clientY: number) => {
       const rect = canvas.getBoundingClientRect();
-      const client = "touches" in e ? e.touches[0] : e;
       pointer.set(
-        ((client.clientX - rect.left) / rect.width) * 2 - 1,
-        -((client.clientY - rect.top) / rect.height) * 2 + 1
+        ((clientX - rect.left) / rect.width) * 2 - 1,
+        -((clientY - rect.top) / rect.height) * 2 + 1
       );
     };
 
-    const onClick = (e: MouseEvent) => {
-      getPointerNDC(e);
-      raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObjects(clickTargets.map((t) => t.mesh));
-      if (hits[0]) {
-        const target = clickTargets.find((t) => t.mesh === hits[0].object);
-        if (target) onSelectBranch(target.id);
+    const updateCursor = () => {
+      if (isPointerDown) {
+        canvas.style.cursor = "grabbing";
+      } else if (isHoveringPin) {
+        canvas.style.cursor = "pointer";
+      } else {
+        canvas.style.cursor = "grab";
       }
     };
 
-    canvas.style.cursor = "default";
-    canvas.addEventListener("click", onClick);
+    const onPointerDown = (e: PointerEvent) => {
+      isPointerDown = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      dragLastX = e.clientX;
+      dragLastY = e.clientY;
+      hasDragged = false;
+      updateCursor();
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (isPointerDown) {
+        const dx = e.clientX - dragLastX;
+        const dy = e.clientY - dragLastY;
+        dragLastX = e.clientX;
+        dragLastY = e.clientY;
+
+        if (Math.hypot(e.clientX - dragStartX, e.clientY - dragStartY) > 5) {
+          hasDragged = true;
+        }
+
+        // Apply smooth bounded rotation delta
+        targetRotY = Math.min(0.35, Math.max(-0.65, targetRotY + dx * 0.005));
+        targetRotX = Math.min(0.68, Math.max(0.12, targetRotX + dy * 0.005));
+      } else {
+        // Hover raycasting to check if cursor is over a pin
+        getPointerNDC(e.clientX, e.clientY);
+        raycaster.setFromCamera(pointer, camera);
+        const hits = raycaster.intersectObjects(clickTargets.map((t) => t.mesh));
+        const nowHovering = hits.length > 0;
+        if (nowHovering !== isHoveringPin) {
+          isHoveringPin = nowHovering;
+          updateCursor();
+        }
+      }
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (!isPointerDown) return;
+      isPointerDown = false;
+      updateCursor();
+
+      // If released without significant drag, process as pin click
+      if (!hasDragged) {
+        getPointerNDC(e.clientX, e.clientY);
+        raycaster.setFromCamera(pointer, camera);
+        const hits = raycaster.intersectObjects(clickTargets.map((t) => t.mesh));
+        if (hits[0]) {
+          const target = clickTargets.find((t) => t.mesh === hits[0].object);
+          if (target) onSelectBranch(target.id);
+        }
+      }
+    };
+
+    canvas.style.cursor = "grab";
+    canvas.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
 
     // ── Auto-Framing Resize: Guarantees full map visibility with zero cutoff ─
     let lastW = 0, lastH = 0;
@@ -983,14 +1093,14 @@ function MapCanvas3D({
       const aspect = w / h;
       camera.aspect = aspect;
 
-      // Model span: height ~10.0, width ~5.86
-      // Calculate distance to fit full height and width with breathing room
-      const targetHeight = Math.max(11.8, 7.2 / (aspect || 1));
+      // Model span with 3D tilt: height ~10.0, width ~5.86
+      // Distance calculation guarantees full bounds fit without any cutoff
+      const targetHeight = Math.max(12.2, 7.6 / (aspect || 1));
       const fovRad = (camera.fov * Math.PI) / 360;
       const distance = (targetHeight / 2) / Math.tan(fovRad);
 
-      camera.position.set(0, 0, distance);
-      camera.lookAt(0, 0, 0);
+      camera.position.set(0, -0.3, distance);
+      camera.lookAt(0, -0.1, 0);
       camera.updateProjectionMatrix();
     };
     window.addEventListener("resize", resize, { passive: true });
@@ -1000,6 +1110,12 @@ function MapCanvas3D({
     const render = () => {
       resize();
       raf = requestAnimationFrame(render);
+
+      // Smooth inertia rotation lerp
+      currentRotX += (targetRotX - currentRotX) * 0.08;
+      currentRotY += (targetRotY - currentRotY) * 0.08;
+      mapGroup.rotation.x = currentRotX;
+      mapGroup.rotation.y = currentRotY;
 
       const selId = selectedIdRef.current;
       const filtIds = filteredIdsRef.current;
@@ -1025,7 +1141,9 @@ function MapCanvas3D({
 
     return () => {
       cancelAnimationFrame(raf);
-      canvas.removeEventListener("click", onClick);
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("resize", resize);
       renderer.dispose();
     };
