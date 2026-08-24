@@ -10,6 +10,119 @@ import { CourseId } from "@/data/courses";
 let cachedGltfScene: THREE.Group | null = null;
 let gltfPromise: Promise<THREE.Group> | null = null;
 
+function refineNissanHoodDecal(root: THREE.Object3D) {
+  const decal = root.getObjectByName("TL_MABUHAY_HOOD_DECAL");
+  const bodyMesh = root.getObjectByName("Mesh1_NISSANsentra_0");
+  if (!(decal instanceof THREE.Mesh) || !(bodyMesh instanceof THREE.Mesh)) return;
+
+  const raycaster = new THREE.Raycaster();
+  const down = new THREE.Vector3(0, -1, 0);
+
+  const geometry = decal.geometry.clone();
+  geometry.computeBoundingBox();
+  const bounds = geometry.boundingBox;
+  const position = geometry.getAttribute("position");
+  if (bounds && position) {
+    const center = new THREE.Vector3();
+    bounds.getCenter(center);
+    for (let index = 0; index < position.count; index += 1) {
+      const x = center.x + (position.getX(index) - center.x) * 0.58;
+      const z = center.z + (position.getZ(index) - center.z) * 0.58 + 0.0012;
+
+      raycaster.set(new THREE.Vector3(x, 0.015, z), down);
+      const intersects = raycaster.intersectObject(bodyMesh, false);
+      if (intersects.length > 0) {
+        position.setXYZ(index, x, intersects[0].point.y + 0.000008, z);
+      } else {
+        position.setXYZ(index, x, position.getY(index), z);
+      }
+    }
+    position.needsUpdate = true;
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    decal.geometry = geometry;
+  }
+
+  const sourceMaterial = Array.isArray(decal.material) ? decal.material[0] : decal.material;
+  const sourceMap =
+    sourceMaterial instanceof THREE.MeshBasicMaterial || sourceMaterial instanceof THREE.MeshStandardMaterial
+      ? sourceMaterial.map
+      : null;
+  decal.material = new THREE.MeshStandardMaterial({
+    name: "TL_MABUHAY_AUTOMOTIVE_HOOD_VINYL",
+    map: sourceMap,
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.96,
+    alphaTest: 0.1,
+    depthWrite: false,
+    roughness: 0.38,
+    metalness: 0.05,
+    side: THREE.FrontSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -3,
+    polygonOffsetUnits: -3,
+  });
+  decal.renderOrder = 4;
+}
+
+function addDioramaCarDecals(carHolder: THREE.Group, scaleRatio: number) {
+  const textureLoader = new THREE.TextureLoader();
+
+  const createDecalMat = (tex: THREE.Texture) => {
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
+    tex.needsUpdate = true;
+    return new THREE.MeshStandardMaterial({
+      map: tex,
+      transparent: true,
+      opacity: 0.96,
+      alphaTest: 0.05,
+      depthWrite: false,
+      roughness: 0.35,
+      metalness: 0.05,
+      side: THREE.FrontSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -3,
+      polygonOffsetUnits: -3,
+    });
+  };
+
+  void Promise.allSettled([
+    textureLoader.loadAsync("/assets/fleet/tl-mabuhay-side-livery-left.png"),
+    textureLoader.loadAsync("/assets/fleet/tl-mabuhay-side-livery-right.png"),
+    textureLoader.loadAsync("/assets/fleet/tl-mabuhay-student-driver-sticker.png"),
+  ]).then(([leftRes, rightRes, rearRes]) => {
+    const sideGeo = new THREE.PlaneGeometry(1.24 * scaleRatio, 0.29 * scaleRatio);
+
+    if (leftRes.status === "fulfilled") {
+      const leftPanel = new THREE.Mesh(sideGeo, createDecalMat(leftRes.value));
+      leftPanel.position.set(-0.81 * scaleRatio, 0.65 * scaleRatio, 0.10 * scaleRatio);
+      leftPanel.rotation.y = -Math.PI / 2;
+      leftPanel.renderOrder = 4;
+      carHolder.add(leftPanel);
+    }
+
+    if (rightRes.status === "fulfilled") {
+      const rightPanel = new THREE.Mesh(sideGeo, createDecalMat(rightRes.value));
+      rightPanel.position.set(0.81 * scaleRatio, 0.65 * scaleRatio, 0.10 * scaleRatio);
+      rightPanel.rotation.y = Math.PI / 2;
+      rightPanel.renderOrder = 4;
+      carHolder.add(rightPanel);
+    }
+
+    if (rearRes.status === "fulfilled") {
+      const bumperGeo = new THREE.PlaneGeometry(0.32 * scaleRatio, 0.168 * scaleRatio);
+      const bumperSticker = new THREE.Mesh(bumperGeo, createDecalMat(rearRes.value));
+      bumperSticker.position.set(0.00, 0.49 * scaleRatio, -2.076 * scaleRatio);
+      bumperSticker.rotation.y = Math.PI;
+      bumperSticker.renderOrder = 4;
+      carHolder.add(bumperSticker);
+    }
+  });
+}
+
 function loadNissanModel(): Promise<THREE.Group> {
   if (cachedGltfScene) return Promise.resolve(cachedGltfScene.clone());
   if (gltfPromise) return gltfPromise.then((scene) => scene.clone());
@@ -17,8 +130,9 @@ function loadNissanModel(): Promise<THREE.Group> {
   gltfPromise = new Promise((resolve, reject) => {
     const loader = new GLTFLoader();
     loader.load(
-      "/assets/nissan-sentra.glb",
+      "/assets/2007-nissan-sentra-tl-mabuhay-hood-decal.glb",
       (gltf) => {
+        refineNissanHoodDecal(gltf.scene);
         cachedGltfScene = gltf.scene;
         resolve(gltf.scene.clone());
       },
@@ -630,6 +744,7 @@ export function CourseCardDiorama({ courseId }: { courseId: CourseId }) {
         });
 
         carHolder.add(model);
+        addDioramaCarDecals(carHolder, 2.0 / 4.15);
       });
 
       animUpdate = (time) => {
@@ -828,6 +943,7 @@ export function CourseCardDiorama({ courseId }: { courseId: CourseId }) {
         });
 
         carHolder.add(model);
+        addDioramaCarDecals(carHolder, 2.15 / 4.15);
       });
 
       carHolder.position.set(0, 0, -1.15);

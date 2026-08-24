@@ -8,6 +8,63 @@ interface ShowcaseCanvasProps {
   onReady: (ready: boolean) => void;
 }
 
+function refineNissanHoodDecal(root: THREE.Object3D) {
+  const decal = root.getObjectByName("TL_MABUHAY_HOOD_DECAL");
+  const bodyMesh = root.getObjectByName("Mesh1_NISSANsentra_0");
+  if (!(decal instanceof THREE.Mesh) || !(bodyMesh instanceof THREE.Mesh)) return;
+
+  const raycaster = new THREE.Raycaster();
+  const down = new THREE.Vector3(0, -1, 0);
+
+  const geometry = decal.geometry.clone();
+  geometry.computeBoundingBox();
+  const bounds = geometry.boundingBox;
+  const position = geometry.getAttribute("position");
+  if (bounds && position) {
+    const center = new THREE.Vector3();
+    bounds.getCenter(center);
+    for (let index = 0; index < position.count; index += 1) {
+      const x = center.x + (position.getX(index) - center.x) * 0.58;
+      const z = center.z + (position.getZ(index) - center.z) * 0.58 + 0.0012;
+
+      raycaster.set(new THREE.Vector3(x, 0.015, z), down);
+      const intersects = raycaster.intersectObject(bodyMesh, false);
+      if (intersects.length > 0) {
+        position.setXYZ(index, x, intersects[0].point.y + 0.000008, z);
+      } else {
+        position.setXYZ(index, x, position.getY(index), z);
+      }
+    }
+    position.needsUpdate = true;
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    decal.geometry = geometry;
+  }
+
+  const sourceMaterial = Array.isArray(decal.material) ? decal.material[0] : decal.material;
+  const sourceMap =
+    sourceMaterial instanceof THREE.MeshBasicMaterial || sourceMaterial instanceof THREE.MeshStandardMaterial
+      ? sourceMaterial.map
+      : null;
+  decal.material = new THREE.MeshStandardMaterial({
+    name: "TL_MABUHAY_AUTOMOTIVE_HOOD_VINYL",
+    map: sourceMap,
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.96,
+    alphaTest: 0.1,
+    depthWrite: false,
+    roughness: 0.38,
+    metalness: 0.05,
+    side: THREE.FrontSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -3,
+    polygonOffsetUnits: -3,
+  });
+  decal.renderOrder = 4;
+}
+
 function createFallbackAcademyCar(): THREE.Group {
   const group = new THREE.Group();
 
@@ -269,12 +326,15 @@ export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
     const carHolder = new THREE.Group();
     platformGroup.add(carHolder);
 
-    // Load Nissan Model
+    // Load Nissan Model with Decals
     const loader = new GLTFLoader();
+    const textureLoader = new THREE.TextureLoader();
+
     loader.load(
-      "/assets/nissan-sentra.glb",
+      "/assets/2007-nissan-sentra-tl-mabuhay-hood-decal.glb",
       (gltf) => {
         const model = gltf.scene;
+        refineNissanHoodDecal(model);
         const box = new THREE.Box3().setFromObject(model);
         const size = new THREE.Vector3();
         box.getSize(size);
@@ -374,6 +434,59 @@ export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
                 metalness: 0.18,
               });
             }
+          }
+        });
+
+        // Add Side & Rear Decals to Showcase Car
+        const createDecalMat = (tex: THREE.Texture) => {
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.anisotropy = 8;
+          tex.needsUpdate = true;
+          return new THREE.MeshStandardMaterial({
+            map: tex,
+            transparent: true,
+            opacity: 0.96,
+            alphaTest: 0.05,
+            depthWrite: false,
+            roughness: 0.35,
+            metalness: 0.05,
+            side: THREE.FrontSide,
+            polygonOffset: true,
+            polygonOffsetFactor: -3,
+            polygonOffsetUnits: -3,
+          });
+        };
+
+        void Promise.allSettled([
+          textureLoader.loadAsync("/assets/fleet/tl-mabuhay-side-livery-left.png"),
+          textureLoader.loadAsync("/assets/fleet/tl-mabuhay-side-livery-right.png"),
+          textureLoader.loadAsync("/assets/fleet/tl-mabuhay-student-driver-sticker.png"),
+        ]).then(([leftRes, rightRes, rearRes]) => {
+          const sideGeo = new THREE.PlaneGeometry(1.24, 0.29);
+
+          if (leftRes.status === "fulfilled") {
+            const leftPanel = new THREE.Mesh(sideGeo, createDecalMat(leftRes.value));
+            leftPanel.position.set(-0.81, 0.65, 0.10);
+            leftPanel.rotation.y = -Math.PI / 2;
+            leftPanel.renderOrder = 4;
+            carHolder.add(leftPanel);
+          }
+
+          if (rightRes.status === "fulfilled") {
+            const rightPanel = new THREE.Mesh(sideGeo, createDecalMat(rightRes.value));
+            rightPanel.position.set(0.81, 0.65, 0.10);
+            rightPanel.rotation.y = Math.PI / 2;
+            rightPanel.renderOrder = 4;
+            carHolder.add(rightPanel);
+          }
+
+          if (rearRes.status === "fulfilled") {
+            const bumperGeo = new THREE.PlaneGeometry(0.32, 0.168);
+            const bumperSticker = new THREE.Mesh(bumperGeo, createDecalMat(rearRes.value));
+            bumperSticker.position.set(0.00, 0.49, -2.076);
+            bumperSticker.rotation.y = Math.PI;
+            bumperSticker.renderOrder = 4;
+            carHolder.add(bumperSticker);
           }
         });
 

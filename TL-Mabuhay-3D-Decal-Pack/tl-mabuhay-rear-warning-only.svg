@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="4096" height="2048" viewBox="0 0 4096 2048">
+  <title>TL Mabuhay rear caution student driver decal</title>
+  <desc>Transparent two-band rear safety decal for a training vehicle.</desc>
+
+  <g id="rear-safety-decal">
+    <rect x="140" y="145" width="3816" height="800" rx="88" fill="#b41f34" stroke="#f3b61f" stroke-width="38" />
+    <text x="2048" y="790" fill="#ffffff" stroke="#071a31" stroke-width="44" paint-order="stroke fill" font-family="DejaVu Sans, Arial, Helvetica, sans-serif" font-size="640" font-weight="900" text-anchor="middle" letter-spacing="25" textLength="2940" lengthAdjust="spacingAndGlyphs">CAUTION</text>
+
+    <rect x="140" y="1103" width="3816" height="800" rx="88" fill="#071a31" stroke="#f3b61f" stroke-width="38" />
+    <text x="2048" y="1710" fill="#ffffff" stroke="#b41f34" stroke-width="34" paint-order="stroke fill" font-family="DejaVu Sans, Arial, Helvetica, sans-serif" font-size="410" font-weight="900" text-anchor="middle" letter-spacing="18" textLength="3290" lengthAdjust="spacingAndGlyphs">STUDENT DRIVER</text>
+  </g>
+</svg>

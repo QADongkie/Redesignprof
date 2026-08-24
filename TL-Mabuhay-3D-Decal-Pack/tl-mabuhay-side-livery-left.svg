@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="4096" height="2048" viewBox="0 0 4096 2048">
+  <title>TL Mabuhay left-side fleet livery</title>
+  <desc>Transparent automotive decal artwork for the driver/left side of a 3D vehicle, with readable non-mirrored text.</desc>
+
+  <g id="left-side-branding">
+    <text x="190" y="640" fill="#ffffff" stroke="#071a31" stroke-width="22" paint-order="stroke fill" font-family="DejaVu Sans, Arial, Helvetica, sans-serif" font-size="350" font-weight="900" letter-spacing="4" textLength="2650" lengthAdjust="spacingAndGlyphs">TL MABUHAY</text>
+    <text x="210" y="865" fill="#ffffff" stroke="#071a31" stroke-width="10" paint-order="stroke fill" font-family="DejaVu Sans, Arial, Helvetica, sans-serif" font-size="126" font-weight="800" letter-spacing="4" textLength="2520" lengthAdjust="spacingAndGlyphs">DRIVING LESSON ACADEMY, INC.</text>
+    <rect x="205" y="940" width="2600" height="34" rx="17" fill="#f3b61f" stroke="#071a31" stroke-width="8" />
+    <text x="220" y="1170" fill="#be1e34" stroke="#071a31" stroke-width="10" paint-order="stroke fill" font-family="DejaVu Sans, Arial, Helvetica, sans-serif" font-size="146" font-style="italic" font-weight="900" letter-spacing="3" textLength="2530" lengthAdjust="spacingAndGlyphs">YOUR DEFENSIVE DRIVING ADVOCATE</text>
+
+    <image href="tl-mabuhay-round-logo.png" xlink:href="tl-mabuhay-round-logo.png" x="2910" y="220" width="1060" height="1060" preserveAspectRatio="xMidYMid meet" />
+
+    <path d="M3150 1690 C2420 1685 1610 1540 150 1190 L150 1340 C1360 1640 2190 1805 3190 1810 Z" fill="#f3b61f" stroke="#071a31" stroke-width="12" />
+    <path d="M3100 1840 C2210 1770 1390 1570 150 1395 L150 1495 C1150 1690 1940 1890 3110 1950 Z" fill="#d99512" stroke="#071a31" stroke-width="9" />
+    <path d="M2610 1880 C1840 1770 1000 1595 150 1515 L150 1660 C940 1740 1600 1910 2500 1990 Z" fill="#be1e34" stroke="#071a31" stroke-width="10" />
+  </g>
+</svg>

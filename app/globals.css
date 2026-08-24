@@ -477,7 +477,7 @@ summary:focus-visible,
 }
 
 .hero-actions,
-.final-cta>div>div {
+.arrival-actions {
   display: flex;
   align-items: center;
   gap: 11px;
@@ -1071,7 +1071,7 @@ summary:focus-visible,
   right: 12%;
   width: 50%;
   max-width: 780px;
-  aspect-ratio: 790 / 413;
+  aspect-ratio: 1700 / 925;
   transform-origin: 65% 70%;
   transition: transform 140ms ease-out;
 }
@@ -1118,12 +1118,12 @@ summary:focus-visible,
 
 .tail-light-flare {
   position: absolute;
-  top: 50%;
-  left: 20%;
-  width: 160px;
-  height: 55px;
+  top: 40%;
+  left: 14%;
+  width: 220px;
+  height: 65px;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(255, 42, 18, 0.48) 0%, rgba(255, 42, 18, 0.18) 50%, transparent 80%);
+  background: radial-gradient(ellipse at center, rgba(255, 48, 20, 0.55) 0%, rgba(255, 48, 20, 0.2) 50%, transparent 80%);
   filter: blur(12px);
   z-index: 3;
   pointer-events: none;
@@ -2038,40 +2038,313 @@ summary:focus-visible,
   max-width: 640px;
 }
 
-.final-cta {
-  min-height: 700px;
+.final-arrival {
+  position: relative;
+  isolation: isolate;
+  min-height: max(860px, 106svh);
   display: grid;
-  place-items: center;
-  padding: 90px 30px;
+  align-items: center;
+  overflow: hidden;
   color: white;
-  text-align: center;
-  background: radial-gradient(circle at 50% 28%, #16466a 0, #082945 34%, #00111f 75%);
+  background:
+    radial-gradient(circle at 18% 24%, rgba(255, 215, 90, 0.42), transparent 45%),
+    radial-gradient(circle at 70% 36%, rgba(55, 115, 168, 0.48), transparent 42%),
+    linear-gradient(145deg, #0e294b 0%, #081a32 48%, #040e1b 100%);
 }
 
-.final-cta>div {
+.final-arrival::before {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-width: 1px 0;
+}
+
+.arrival-canvas-shell {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: scale(1.018);
+  transition: opacity 850ms ease, transform 1600ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.final-arrival.is-scene-ready .arrival-canvas-shell {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.arrival-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.arrival-atmosphere {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 225, 130, 0.42) 0%, rgba(245, 175, 30, 0.18) 36%, transparent 68%),
+    linear-gradient(90deg, rgba(2, 14, 28, 0.65) 0%, rgba(3, 20, 38, 0.38) 28%, rgba(4, 22, 42, 0.10) 52%, transparent 70%),
+    linear-gradient(0deg, rgba(1, 10, 20, 0.75) 0%, transparent 22%, transparent 78%, rgba(1, 10, 20, 0.25) 100%);
+}
+
+.arrival-atmosphere::after {
+  content: "";
+  position: absolute;
+  left: max(6vw, 42px);
+  bottom: 88px;
+  width: 124px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--gold), transparent);
+  transform-origin: left;
+  transform: scaleX(.28);
+  transition: transform 1200ms 300ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.final-arrival.is-arrived .arrival-atmosphere::after {
+  transform: scaleX(1);
+}
+
+.arrival-ring-wrapper {
+  position: absolute;
+  top: 4%;
+  left: max(4vw, 28px);
+  width: 360px;
+  height: 360px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.arrival-ring-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 210px;
+  height: 210px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid rgba(255, 215, 90, 0.75);
+  box-shadow: 
+    0 0 28px rgba(245, 180, 36, 0.55),
+    inset 0 0 20px rgba(245, 180, 36, 0.3);
+  animation: arrival-ring-glow-pulse 4.2s ease-in-out infinite alternate;
+}
+
+.arrival-ring-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 290px;
+  height: 290px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1.5px dashed rgba(255, 238, 170, 0.4);
+  box-shadow: 0 0 36px rgba(245, 158, 11, 0.25);
+  animation: arrival-ring-expand 5.6s ease-in-out infinite alternate;
+}
+
+.arrival-ring-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 360px;
+  height: 360px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 220, 100, 0.32) 0%, rgba(245, 158, 11, 0.14) 45%, transparent 72%);
+  filter: blur(28px);
+  animation: arrival-sun-pulse 4.8s ease-in-out infinite alternate;
+}
+
+@keyframes arrival-ring-glow-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.96);
+    opacity: 0.72;
+    box-shadow: 0 0 20px rgba(245, 180, 36, 0.4);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.04);
+    opacity: 1;
+    box-shadow: 0 0 36px rgba(245, 180, 36, 0.75), 0 0 70px rgba(245, 180, 36, 0.3);
+  }
+}
+
+@keyframes arrival-ring-expand {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg) scale(0.94);
+    opacity: 0.25;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(45deg) scale(1.06);
+    opacity: 0.65;
+  }
+}
+
+@keyframes arrival-sun-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.95);
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.08);
+    opacity: 1;
+  }
+}
+
+.arrival-copy {
+  position: relative;
+  z-index: 2;
+  width: min(540px, 42vw);
+  padding: 138px 0 176px max(5vw, 36px);
+}
+
+.arrival-advocate {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 9px 17px 9px 9px;
+  border: 1px solid rgba(255, 255, 255, .17);
+  border-radius: 999px;
+  background: rgba(3, 17, 30, .54);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, .18);
+  backdrop-filter: blur(16px);
+}
+
+.arrival-advocate img {
+  width: 54px;
+  height: 54px;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .38));
+}
+
+.arrival-advocate>span {
   display: grid;
-  justify-items: center;
+  gap: 5px;
 }
 
-.final-cta img {
-  width: 118px;
-  height: 118px;
-  filter: drop-shadow(0 18px 35px rgba(0, 0, 0, .3));
+.arrival-advocate small {
+  color: #dce6ee;
+  font-family: "Manrope", sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-transform: uppercase;
 }
 
-.final-cta p {
-  margin: 30px 0 18px;
+.arrival-advocate strong {
   color: var(--gold);
+  font-family: "Manrope", sans-serif;
+  font-size: clamp(11px, 1vw, 14px);
+  font-weight: 800;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+
+.arrival-kicker {
+  margin: 40px 0 20px;
+  color: #d4dfe7;
+  font-family: "Manrope", sans-serif;
   font-size: 10px;
   font-weight: 800;
+  letter-spacing: .16em;
   text-transform: uppercase;
-  letter-spacing: .15em;
 }
 
-.final-cta h2 {
+.arrival-copy h2 {
+  max-width: 710px;
   margin: 0;
-  font: 800 clamp(58px, 8vw, 118px)/.9 "Manrope", sans-serif;
-  letter-spacing: -.07em;
+  font: 800 clamp(62px, 7.25vw, 116px)/.84 "Manrope", sans-serif;
+  letter-spacing: -.072em;
+  text-wrap: balance;
+  text-shadow: 0 22px 55px rgba(0, 0, 0, .34);
+}
+
+.arrival-copy h2 span {
+  display: block;
+  color: var(--gold);
+}
+
+.arrival-lead {
+  max-width: 540px;
+  margin: 28px 0 0;
+  color: #c7d3dc;
+  font-size: clamp(15px, 1.15vw, 18px);
+  line-height: 1.65;
+}
+
+.arrival-actions {
+  margin-top: 34px;
+}
+
+.arrival-actions .button {
+  min-height: 58px;
+  padding-inline: 22px;
+}
+
+.arrival-actions .button--quiet {
+  border-color: rgba(255, 255, 255, .24);
+  background: rgba(2, 15, 28, .5);
+}
+
+.arrival-destination {
+  position: absolute;
+  z-index: 2;
+  right: max(6vw, 42px);
+  bottom: 66px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: white;
+  text-align: right;
+}
+
+.arrival-destination__line {
+  width: 76px;
+  height: 1px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, .32);
+}
+
+.arrival-destination__line::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--gold);
+  transform: translateX(-100%);
+  transition: transform 1100ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.final-arrival.is-arrived .arrival-destination__line::after {
+  transform: translateX(0);
+}
+
+.arrival-destination>span:last-child {
+  display: grid;
+  gap: 5px;
+}
+
+.arrival-destination small {
+  color: var(--gold);
+  font-family: "Manrope", sans-serif;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.arrival-destination strong {
+  color: #dce5ec;
+  font-family: "Manrope", sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .045em;
 }
 
 .site-footer {
@@ -2083,7 +2356,9 @@ summary:focus-visible,
   padding: 35px max(6vw, 42px);
   color: white;
   border-top: 1px solid rgba(255, 255, 255, .12);
-  background: #000c16;
+  background:
+    linear-gradient(90deg, rgba(243, 182, 31, .05), transparent 30%),
+    #000a12;
 }
 
 .brand--footer img {
@@ -2163,6 +2438,16 @@ summary:focus-visible,
   .planner-summary ul {
     grid-template-columns: 1fr;
   }
+
+  .arrival-copy {
+    width: min(680px, 68vw);
+  }
+
+  .arrival-atmosphere {
+    background:
+      linear-gradient(90deg, rgba(1, 10, 19, .98) 0%, rgba(2, 13, 25, .91) 38%, rgba(3, 16, 27, .42) 64%, rgba(3, 14, 23, .08) 82%),
+      linear-gradient(0deg, rgba(1, 8, 14, .94) 0%, transparent 30%, rgba(1, 8, 14, .5) 100%);
+  }
 }
 
 @media (max-width: 860px) {
@@ -2235,6 +2520,14 @@ summary:focus-visible,
 
   .hero-visual::after {
     background: linear-gradient(180deg, rgba(0, 15, 28, 0.72) 0%, rgba(0, 15, 28, 0.45) 50%, rgba(0, 15, 28, 0.85) 100%);
+  }
+
+  .arrival-copy {
+    width: min(650px, 82vw);
+  }
+
+  .arrival-destination__line {
+    width: 48px;
   }
 
   .trust-strip {
@@ -2538,20 +2831,88 @@ summary:focus-visible,
     font-size: 13px;
   }
 
-  .final-cta {
-    min-height: 620px;
-    padding-inline: 20px;
+  .final-arrival {
+    min-height: 960px;
+    align-items: start;
   }
 
-  .final-cta h2 {
-    font-size: clamp(56px, 18vw, 86px);
+  .arrival-atmosphere {
+    background:
+      linear-gradient(180deg, rgba(1, 10, 19, .98) 0%, rgba(2, 13, 25, .92) 38%, rgba(3, 16, 27, .34) 64%, rgba(1, 8, 14, .92) 100%),
+      linear-gradient(90deg, rgba(1, 10, 19, .5), transparent 70%);
   }
 
-  .final-cta>div>div {
+  .arrival-atmosphere::before {
+    background-size: 58px 58px;
+  }
+
+  .arrival-atmosphere::after {
+    left: 20px;
+    bottom: 104px;
+  }
+
+  .arrival-copy {
+    width: 100%;
+    padding: 102px 20px 330px;
+  }
+
+  .arrival-advocate {
+    max-width: 100%;
+    align-items: center;
+    padding-right: 14px;
+  }
+
+  .arrival-advocate img {
+    width: 48px;
+    height: 48px;
+  }
+
+  .arrival-advocate strong {
+    font-size: 9px;
+    letter-spacing: .05em;
+  }
+
+  .arrival-kicker {
+    margin-top: 34px;
+    font-size: 8px;
+  }
+
+  .arrival-copy h2 {
+    font-size: clamp(54px, 16.5vw, 78px);
+    line-height: .88;
+  }
+
+  .arrival-lead {
+    max-width: 420px;
+    font-size: 14px;
+  }
+
+  .arrival-actions {
     align-items: stretch;
     flex-direction: column;
     width: 100%;
-    max-width: 320px;
+    max-width: 340px;
+  }
+
+  .arrival-actions .button {
+    width: 100%;
+  }
+
+  .arrival-destination {
+    left: 20px;
+    right: 20px;
+    bottom: 60px;
+    justify-content: flex-end;
+  }
+
+  .arrival-destination__line {
+    flex: 1;
+    max-width: 72px;
+  }
+
+  .arrival-destination strong {
+    max-width: 220px;
+    line-height: 1.35;
   }
 
   .site-footer {
