@@ -1852,9 +1852,15 @@ summary:focus-visible,
 
 .faq-section {
   display: grid;
-  grid-template-columns: .7fr 1.3fr;
-  gap: clamp(50px, 10vw, 160px);
+  grid-template-columns: .75fr 1.25fr;
+  gap: clamp(40px, 8vw, 120px);
   background: var(--paper);
+}
+
+.faq-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
 }
 
 .faq-section .section-heading {
@@ -1863,57 +1869,173 @@ summary:focus-visible,
 }
 
 .faq-section .section-heading h2 {
-  margin-top: 27px;
+  margin-top: 22px;
 }
 
+.faq-subtitle {
+  display: block;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.6;
+  max-width: 380px;
+}
+
+/* FAQ List & Elevated Cards */
 .faq-list {
-  border-top: 1px solid #cfd2d0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.faq-list details {
-  border-bottom: 1px solid #cfd2d0;
+.faq-card {
+  position: relative;
+  border: 1px solid rgba(216, 216, 210, 0.85);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(4, 14, 34, 0.03);
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+  overflow: hidden;
 }
 
-.faq-list summary {
-  min-height: 92px;
+.faq-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -6px rgba(4, 14, 34, 0.08);
+  border-color: rgba(41, 72, 157, 0.28);
+}
+
+.faq-card.is-open {
+  border-color: var(--brand-blue);
+  box-shadow: 0 12px 32px -8px rgba(4, 14, 34, 0.09), inset 3px 0 0 0 var(--gold);
+}
+
+.faq-summary-btn {
+  width: 100%;
+  min-height: 84px;
   display: grid;
-  grid-template-columns: 40px 1fr auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 16px;
-  padding: 0 4px;
+  gap: 18px;
+  padding: 16px 20px;
   color: var(--ink);
   font: 700 17px/1.35 "Manrope", sans-serif;
+  text-align: left;
+  background: transparent;
+  border: none;
   cursor: pointer;
-  list-style: none;
+  user-select: none;
 }
 
-.faq-list summary::-webkit-details-marker {
-  display: none;
+/* 3D Index Pill Badge */
+.faq-index-pill {
+  width: 38px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: 800 12px/1 "Manrope", sans-serif;
+  letter-spacing: 0.04em;
+  color: var(--navy-900);
+  background: rgba(246, 242, 233, 0.9);
+  border: 1px solid rgba(216, 216, 210, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(4, 14, 34, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: center center;
 }
 
-.faq-list summary>span {
-  color: var(--gold-deep);
-  font-size: 9px;
+.faq-card:hover .faq-index-pill {
+  background: var(--navy-950);
+  color: var(--gold);
+  border-color: var(--navy-900);
+  transform: scale(1.05);
+  box-shadow: 0 4px 10px rgba(4, 14, 34, 0.15);
 }
 
-.faq-list summary i {
-  color: var(--navy-800);
-  font-size: 24px;
+.faq-card.is-open .faq-index-pill {
+  background: var(--navy-950);
+  color: var(--gold);
+  border-color: var(--navy-900);
+  box-shadow: 0 4px 12px rgba(4, 14, 34, 0.18);
+}
+
+.faq-question-text {
+  transition: color 0.2s ease;
+}
+
+.faq-card:hover .faq-question-text {
+  color: var(--brand-blue-deep);
+}
+
+.faq-card.is-open .faq-question-text {
+  color: var(--navy-950);
+}
+
+/* Toggle Button */
+.faq-toggle-btn {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(41, 72, 157, 0.06);
+  color: var(--navy-900);
+  transform-origin: center center;
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.faq-toggle-btn i {
+  font-size: 20px;
   font-style: normal;
-  font-weight: 400;
-  transition: transform 180ms ease;
+  font-weight: 500;
+  line-height: 1;
+  display: inline-block;
+  pointer-events: none;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.faq-list details[open] summary i {
+.faq-card:hover .faq-toggle-btn {
+  background: rgba(41, 72, 157, 0.14);
+  color: var(--brand-blue-deep);
+  transform: scale(1.06);
+}
+
+.faq-card.is-open .faq-toggle-btn {
+  background: var(--navy-950);
+  color: #ffffff;
   transform: rotate(45deg);
+  box-shadow: 0 4px 12px rgba(4, 14, 34, 0.2);
 }
 
-.faq-list details>p {
-  max-width: 680px;
-  margin: -4px 45px 28px 60px;
+/* Grid-based Smooth Expansion */
+.faq-answer-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.faq-answer-collapse.is-expanded {
+  grid-template-rows: 1fr;
+}
+
+.faq-content-pane {
+  overflow: hidden;
+  padding: 0 24px 0 76px;
+  transition: padding-bottom 0.38s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
+  opacity: 0;
+}
+
+.faq-answer-collapse.is-expanded .faq-content-pane {
+  padding-bottom: 22px;
+  opacity: 1;
+}
+
+.faq-answer-text {
+  margin: 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 14.5px;
   line-height: 1.7;
+  max-width: 640px;
 }
 
 .final-cta {
