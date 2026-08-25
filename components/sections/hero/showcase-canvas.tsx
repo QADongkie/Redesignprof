@@ -10,37 +10,7 @@ interface ShowcaseCanvasProps {
 
 function refineNissanHoodDecal(root: THREE.Object3D) {
   const decal = root.getObjectByName("TL_MABUHAY_HOOD_DECAL");
-  const bodyMesh = root.getObjectByName("Mesh1_NISSANsentra_0");
-  if (!(decal instanceof THREE.Mesh) || !(bodyMesh instanceof THREE.Mesh)) return;
-
-  const raycaster = new THREE.Raycaster();
-  const down = new THREE.Vector3(0, -1, 0);
-
-  const geometry = decal.geometry.clone();
-  geometry.computeBoundingBox();
-  const bounds = geometry.boundingBox;
-  const position = geometry.getAttribute("position");
-  if (bounds && position) {
-    const center = new THREE.Vector3();
-    bounds.getCenter(center);
-    for (let index = 0; index < position.count; index += 1) {
-      const x = center.x + (position.getX(index) - center.x) * 0.58;
-      const z = center.z + (position.getZ(index) - center.z) * 0.58 + 0.0012;
-
-      raycaster.set(new THREE.Vector3(x, 0.015, z), down);
-      const intersects = raycaster.intersectObject(bodyMesh, false);
-      if (intersects.length > 0) {
-        position.setXYZ(index, x, intersects[0].point.y + 0.000008, z);
-      } else {
-        position.setXYZ(index, x, position.getY(index), z);
-      }
-    }
-    position.needsUpdate = true;
-    geometry.computeVertexNormals();
-    geometry.computeBoundingBox();
-    geometry.computeBoundingSphere();
-    decal.geometry = geometry;
-  }
+  if (!(decal instanceof THREE.Mesh)) return;
 
   const sourceMaterial = Array.isArray(decal.material) ? decal.material[0] : decal.material;
   const sourceMap =
@@ -53,9 +23,9 @@ function refineNissanHoodDecal(root: THREE.Object3D) {
     color: 0xffffff,
     transparent: true,
     opacity: 0.96,
-    alphaTest: 0.1,
+    alphaTest: 0.05,
     depthWrite: false,
-    roughness: 0.38,
+    roughness: 0.35,
     metalness: 0.05,
     side: THREE.FrontSide,
     polygonOffset: true,
@@ -63,6 +33,121 @@ function refineNissanHoodDecal(root: THREE.Object3D) {
     polygonOffsetUnits: -3,
   });
   decal.renderOrder = 4;
+}
+
+const BUMPER_CONTOUR = [
+  { x: 0.00, dz: 0.0000 },
+  { x: 0.12, dz: 0.0018 },
+  { x: 0.20, dz: 0.0065 },
+  { x: 0.28, dz: 0.0143 },
+  { x: 0.36, dz: 0.0246 },
+  { x: 0.44, dz: 0.0397 },
+  { x: 0.52, dz: 0.0625 },
+  { x: 0.60, dz: 0.0941 },
+  { x: 0.68, dz: 0.1805 },
+];
+
+function getBumperSurfaceOffsetZ(absX: number): number {
+  if (absX <= 0) return 0;
+  if (absX >= 0.68) return 0.1805 + (absX - 0.68) * 1.1;
+
+  for (let i = 0; i < BUMPER_CONTOUR.length - 1; i++) {
+    const p0 = BUMPER_CONTOUR[i];
+    const p1 = BUMPER_CONTOUR[i + 1];
+    if (absX >= p0.x && absX <= p1.x) {
+      const t = (absX - p0.x) / (p1.x - p0.x);
+      const st = t * t * (3 - 2 * t);
+      return p0.dz + st * (p1.dz - p0.dz);
+    }
+  }
+  return 0.1805;
+}
+
+function createCurvedBumperDecal(
+  texture: THREE.Texture,
+  scaleFactor = 1.0
+): THREE.Mesh {
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 16;
+  texture.needsUpdate = true;
+
+  const halfWidth = 0.66 * scaleFactor;
+  const yMin = 0.455 * scaleFactor;
+  const yMax = 0.575 * scaleFactor;
+  const cols = 64;
+  const rows = 12;
+
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+
+  for (let r = 0; r <= rows; r++) {
+    const v = r / rows;
+    const y = yMin + v * (yMax - yMin);
+    const yBulge = Math.sin(v * Math.PI) * 0.002 * scaleFactor;
+
+    for (let c = 0; c <= cols; c++) {
+      const u = c / cols;
+      const x = -halfWidth + u * (2 * halfWidth);
+      const absX = Math.abs(x / scaleFactor);
+
+      const zOffset = getBumperSurfaceOffsetZ(absX) * scaleFactor;
+      const z = (-2.0725 * scaleFactor) + zOffset - yBulge;
+
+      const eps = 0.01;
+      const zL = getBumperSurfaceOffsetZ(Math.max(0, absX - eps));
+      const zR = getBumperSurfaceOffsetZ(absX + eps);
+      const dz_dx = ((zR - zL) / (2 * eps)) * Math.sign(x);
+      const norm = new THREE.Vector3(dz_dx, -0.05, -1.0).normalize();
+
+      positions.push(x, y, z);
+      normals.push(norm.x, norm.y, norm.z);
+      uvs.push(1 - u, v);
+    }
+  }
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const i0 = r * (cols + 1) + c;
+      const i1 = i0 + 1;
+      const i2 = (r + 1) * (cols + 1) + c;
+      const i3 = i2 + 1;
+
+      indices.push(i0, i2, i1);
+      indices.push(i1, i2, i3);
+    }
+  }
+
+  const decalGeometry = new THREE.BufferGeometry();
+  decalGeometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  decalGeometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+  decalGeometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  decalGeometry.setIndex(indices);
+  decalGeometry.computeBoundingBox();
+
+  const decalMaterial = new THREE.MeshStandardMaterial({
+    name: "TL_MABUHAY_WIDE_REAR_BUMPER_VINYL",
+    map: texture,
+    transparent: true,
+    opacity: 0.98,
+    alphaTest: 0.05,
+    depthWrite: false,
+    roughness: 0.35,
+    metalness: 0.05,
+    side: THREE.FrontSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -3,
+    polygonOffsetUnits: -3,
+  });
+
+  const decalMesh = new THREE.Mesh(decalGeometry, decalMaterial);
+  decalMesh.name = "TL_MABUHAY_WIDE_REAR_BUMPER_MESH";
+  decalMesh.castShadow = true;
+  decalMesh.receiveShadow = true;
+  decalMesh.renderOrder = 4;
+
+  return decalMesh;
 }
 
 function createFallbackAcademyCar(): THREE.Group {
@@ -457,10 +542,12 @@ export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
           });
         };
 
+        const bodyMesh = model.getObjectByName("Mesh1_NISSANsentra_0") as THREE.Mesh;
+
         void Promise.allSettled([
           textureLoader.loadAsync("/assets/fleet/tl-mabuhay-side-livery-left.png"),
           textureLoader.loadAsync("/assets/fleet/tl-mabuhay-side-livery-right.png"),
-          textureLoader.loadAsync("/assets/fleet/tl-mabuhay-student-driver-sticker.png"),
+          textureLoader.loadAsync("/assets/fleet/tl-mabuhay-rear-caution-student-driver.png"),
         ]).then(([leftRes, rightRes, rearRes]) => {
           const sideGeo = new THREE.PlaneGeometry(1.24, 0.29);
 
@@ -481,12 +568,8 @@ export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
           }
 
           if (rearRes.status === "fulfilled") {
-            const bumperGeo = new THREE.PlaneGeometry(0.32, 0.168);
-            const bumperSticker = new THREE.Mesh(bumperGeo, createDecalMat(rearRes.value));
-            bumperSticker.position.set(0.00, 0.49, -2.076);
-            bumperSticker.rotation.y = Math.PI;
-            bumperSticker.renderOrder = 4;
-            carHolder.add(bumperSticker);
+            const bumperDecal = createCurvedBumperDecal(rearRes.value, 1.0);
+            carHolder.add(bumperDecal);
           }
         });
 

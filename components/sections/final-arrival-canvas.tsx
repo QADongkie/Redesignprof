@@ -208,37 +208,7 @@ function correctBranchArtwork(root: THREE.Object3D) {
 
 function refineNissanHoodDecal(root: THREE.Object3D) {
   const decal = root.getObjectByName("TL_MABUHAY_HOOD_DECAL");
-  const bodyMesh = root.getObjectByName("Mesh1_NISSANsentra_0");
-  if (!(decal instanceof THREE.Mesh) || !(bodyMesh instanceof THREE.Mesh)) return;
-
-  const raycaster = new THREE.Raycaster();
-  const down = new THREE.Vector3(0, -1, 0);
-
-  const geometry = decal.geometry.clone();
-  geometry.computeBoundingBox();
-  const bounds = geometry.boundingBox;
-  const position = geometry.getAttribute("position");
-  if (bounds && position) {
-    const center = new THREE.Vector3();
-    bounds.getCenter(center);
-    for (let index = 0; index < position.count; index += 1) {
-      const x = center.x + (position.getX(index) - center.x) * 0.58;
-      const z = center.z + (position.getZ(index) - center.z) * 0.58 + 0.0012;
-
-      raycaster.set(new THREE.Vector3(x, 0.015, z), down);
-      const intersects = raycaster.intersectObject(bodyMesh, false);
-      if (intersects.length > 0) {
-        position.setXYZ(index, x, intersects[0].point.y + 0.000008, z);
-      } else {
-        position.setXYZ(index, x, position.getY(index), z);
-      }
-    }
-    position.needsUpdate = true;
-    geometry.computeVertexNormals();
-    geometry.computeBoundingBox();
-    geometry.computeBoundingSphere();
-    decal.geometry = geometry;
-  }
+  if (!(decal instanceof THREE.Mesh)) return;
 
   const sourceMaterial = Array.isArray(decal.material) ? decal.material[0] : decal.material;
   const sourceMap = sourceMaterial instanceof THREE.MeshBasicMaterial || sourceMaterial instanceof THREE.MeshStandardMaterial
@@ -250,9 +220,9 @@ function refineNissanHoodDecal(root: THREE.Object3D) {
     color: 0xffffff,
     transparent: true,
     opacity: 0.96,
-    alphaTest: 0.1,
+    alphaTest: 0.05,
     depthWrite: false,
-    roughness: 0.38,
+    roughness: 0.35,
     metalness: 0.05,
     side: THREE.FrontSide,
     polygonOffset: true,
@@ -425,7 +395,7 @@ function addSentraLivery(
     textures.rear.colorSpace = THREE.SRGBColorSpace;
     textures.rear.anisotropy = 8;
     textures.rear.needsUpdate = true;
-    const bumperGeometry = new THREE.PlaneGeometry(0.35, 0.184);
+    const bumperGeometry = new THREE.PlaneGeometry(1.44, 0.14);
     const bumperSticker = new THREE.Mesh(bumperGeometry, createDecalMaterial(textures.rear));
     bumperSticker.name = "Sentra_Bumper_Sticker";
     bumperSticker.position.set(0.00, 0.52, -2.228);

@@ -12,37 +12,7 @@ let gltfPromise: Promise<THREE.Group> | null = null;
 
 function refineNissanHoodDecal(root: THREE.Object3D) {
   const decal = root.getObjectByName("TL_MABUHAY_HOOD_DECAL");
-  const bodyMesh = root.getObjectByName("Mesh1_NISSANsentra_0");
-  if (!(decal instanceof THREE.Mesh) || !(bodyMesh instanceof THREE.Mesh)) return;
-
-  const raycaster = new THREE.Raycaster();
-  const down = new THREE.Vector3(0, -1, 0);
-
-  const geometry = decal.geometry.clone();
-  geometry.computeBoundingBox();
-  const bounds = geometry.boundingBox;
-  const position = geometry.getAttribute("position");
-  if (bounds && position) {
-    const center = new THREE.Vector3();
-    bounds.getCenter(center);
-    for (let index = 0; index < position.count; index += 1) {
-      const x = center.x + (position.getX(index) - center.x) * 0.58;
-      const z = center.z + (position.getZ(index) - center.z) * 0.58 + 0.0012;
-
-      raycaster.set(new THREE.Vector3(x, 0.015, z), down);
-      const intersects = raycaster.intersectObject(bodyMesh, false);
-      if (intersects.length > 0) {
-        position.setXYZ(index, x, intersects[0].point.y + 0.000008, z);
-      } else {
-        position.setXYZ(index, x, position.getY(index), z);
-      }
-    }
-    position.needsUpdate = true;
-    geometry.computeVertexNormals();
-    geometry.computeBoundingBox();
-    geometry.computeBoundingSphere();
-    decal.geometry = geometry;
-  }
+  if (!(decal instanceof THREE.Mesh)) return;
 
   const sourceMaterial = Array.isArray(decal.material) ? decal.material[0] : decal.material;
   const sourceMap =
@@ -55,9 +25,9 @@ function refineNissanHoodDecal(root: THREE.Object3D) {
     color: 0xffffff,
     transparent: true,
     opacity: 0.96,
-    alphaTest: 0.1,
+    alphaTest: 0.05,
     depthWrite: false,
-    roughness: 0.38,
+    roughness: 0.35,
     metalness: 0.05,
     side: THREE.FrontSide,
     polygonOffset: true,
@@ -92,7 +62,7 @@ function addDioramaCarDecals(carHolder: THREE.Group, scaleRatio: number) {
   void Promise.allSettled([
     textureLoader.loadAsync("/assets/fleet/tl-mabuhay-side-livery-left.png"),
     textureLoader.loadAsync("/assets/fleet/tl-mabuhay-side-livery-right.png"),
-    textureLoader.loadAsync("/assets/fleet/tl-mabuhay-student-driver-sticker.png"),
+    textureLoader.loadAsync("/assets/fleet/tl-mabuhay-rear-caution-student-driver.png"),
   ]).then(([leftRes, rightRes, rearRes]) => {
     const sideGeo = new THREE.PlaneGeometry(1.24 * scaleRatio, 0.29 * scaleRatio);
 
@@ -113,9 +83,9 @@ function addDioramaCarDecals(carHolder: THREE.Group, scaleRatio: number) {
     }
 
     if (rearRes.status === "fulfilled") {
-      const bumperGeo = new THREE.PlaneGeometry(0.32 * scaleRatio, 0.168 * scaleRatio);
+      const bumperGeo = new THREE.PlaneGeometry(1.36 * scaleRatio, 0.13 * scaleRatio);
       const bumperSticker = new THREE.Mesh(bumperGeo, createDecalMat(rearRes.value));
-      bumperSticker.position.set(0.00, 0.49 * scaleRatio, -2.076 * scaleRatio);
+      bumperSticker.position.set(0.00, 0.50 * scaleRatio, -2.076 * scaleRatio);
       bumperSticker.rotation.y = Math.PI;
       bumperSticker.renderOrder = 4;
       carHolder.add(bumperSticker);
