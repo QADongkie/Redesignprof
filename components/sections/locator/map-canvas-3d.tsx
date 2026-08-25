@@ -293,7 +293,9 @@ export function MapCanvas3D({
     // ── Auto-Framing Resize: Guarantees full map visibility with zero cutoff ─
     let lastW = 0, lastH = 0;
     const resize = () => {
-      const w = canvas.clientWidth, h = canvas.clientHeight;
+      const rect = canvas.getBoundingClientRect();
+      const w = Math.floor(rect.width);
+      const h = Math.floor(rect.height);
       if (!w || !h || (w === lastW && h === lastH)) return;
       lastW = w; lastH = h;
       renderer.setSize(w, h, false);
@@ -301,20 +303,29 @@ export function MapCanvas3D({
       const aspect = w / h;
       camera.aspect = aspect;
 
-      const targetHeight = Math.max(11.2, 7.2 / (aspect || 1));
+      // Fit the entire Philippines archipelago (Height ~9.4, Width ~5.4 units) in both portrait and landscape
+      const mapModelHeight = 9.4;
+      const mapModelWidth = 5.4;
       const fovRad = (camera.fov * Math.PI) / 360;
-      const distance = (targetHeight / 2) / Math.tan(fovRad);
 
-      camera.position.set(0, 0.35, distance);
-      camera.lookAt(0, 0.35, 0);
+      const distForHeight = (mapModelHeight / 2) / Math.tan(fovRad);
+      const distForWidth = (mapModelWidth / 2) / (Math.tan(fovRad) * aspect);
+      const distance = Math.max(distForHeight, distForWidth) * 1.06;
+
+      camera.position.set(0, 0.15, distance);
+      camera.lookAt(0, 0.15, 0);
       camera.updateProjectionMatrix();
     };
+
+    const resizeObserver = new ResizeObserver(() => {
+      resize();
+    });
+    resizeObserver.observe(canvas);
     window.addEventListener("resize", resize, { passive: true });
 
     // ── Render Loop ───────────────────────────────────────────────────────────
     let raf = 0;
     const render = () => {
-      resize();
       raf = requestAnimationFrame(render);
 
       currentRotX += (targetRotX - currentRotX) * 0.08;
@@ -345,6 +356,7 @@ export function MapCanvas3D({
 
     return () => {
       cancelAnimationFrame(raf);
+      resizeObserver.disconnect();
       canvas.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
