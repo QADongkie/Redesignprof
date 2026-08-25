@@ -210,6 +210,35 @@ function refineNissanHoodDecal(root: THREE.Object3D) {
   const decal = root.getObjectByName("TL_MABUHAY_HOOD_DECAL");
   if (!(decal instanceof THREE.Mesh)) return;
 
+  const geometry = decal.geometry.clone();
+  geometry.computeBoundingBox();
+  const bounds = geometry.boundingBox;
+  const position = geometry.getAttribute("position");
+  if (bounds && position) {
+    const center = new THREE.Vector3();
+    bounds.getCenter(center);
+    const scaleFactor = 0.72; // Scaled to ~40cm diameter
+    const slope = -0.2084;
+    const shiftZ = 0.00065; // ~5.9cm shift downwards towards front grille
+    for (let i = 0; i < position.count; i++) {
+      const origX = position.getX(i);
+      const origY = position.getY(i);
+      const origZ = position.getZ(i);
+
+      const x = center.x + (origX - center.x) * scaleFactor;
+      const z = center.z + (origZ - center.z) * scaleFactor + shiftZ;
+      const dz = z - origZ;
+      const y = origY + dz * slope + 0.00004;
+
+      position.setXYZ(i, x, y, z);
+    }
+    position.needsUpdate = true;
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    decal.geometry = geometry;
+  }
+
   const sourceMaterial = Array.isArray(decal.material) ? decal.material[0] : decal.material;
   const sourceMap = sourceMaterial instanceof THREE.MeshBasicMaterial || sourceMaterial instanceof THREE.MeshStandardMaterial
     ? sourceMaterial.map
