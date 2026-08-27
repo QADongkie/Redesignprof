@@ -476,11 +476,12 @@ export function CourseCardDiorama({ courseId }: { courseId: CourseId }) {
 
       // ── OFFICIAL TL MABUHAY LOGO ON LEFT WALL ────────────────────────────────
       const texLoader = new THREE.TextureLoader();
-      const logoTexture = texLoader.load("/assets/tl-mabuhay-logo.png");
+      const logoTexture = texLoader.load("/assets/tl-mabuhay-logo-transparent.png");
       logoTexture.colorSpace = THREE.SRGBColorSpace;
+      logoTexture.anisotropy = 8;
 
       const logoPlaque = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.72, 0.72, 0.02, 32),
+        new THREE.CylinderGeometry(0.72, 0.72, 0.02, 48),
         new THREE.MeshStandardMaterial({ color: 0x091d42, roughness: 0.3, metalness: 0.8 })
       );
       logoPlaque.rotation.z = -Math.PI / 2;
@@ -493,19 +494,22 @@ export function CourseCardDiorama({ courseId }: { courseId: CourseId }) {
       world.add(logoGoldRim);
 
       const logoPoster = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.4, 1.4),
+        new THREE.CircleGeometry(0.70, 64),
         new THREE.MeshStandardMaterial({
           map: logoTexture,
           transparent: true,
+          alphaTest: 0.05,
+          depthWrite: false,
           roughness: 0.25,
           metalness: 0.1,
           polygonOffset: true,
-          polygonOffsetFactor: -2,
-          polygonOffsetUnits: -2,
+          polygonOffsetFactor: -3,
+          polygonOffsetUnits: -3,
         })
       );
       logoPoster.rotation.y = Math.PI / 2;
       logoPoster.position.set(-3.54, 1.85, -0.65);
+      logoPoster.renderOrder = 4;
       world.add(logoPoster);
 
       // ── BACK WALL POSTERS ───────────────────────────────────────────────────

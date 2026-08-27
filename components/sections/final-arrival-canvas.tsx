@@ -10,7 +10,7 @@ interface FinalArrivalCanvasProps {
   onArrived?: () => void;
 }
 
-type VehicleRole = "hero" | "van" | "motorcycle" | "scooter";
+type VehicleRole = "hero" | "van" | "motorcycle" | "scooter" | "truck";
 
 const assetPaths = {
   branch: "/assets/fleet/tl-mabuhay-branch-arrival-environment.glb",
@@ -18,6 +18,8 @@ const assetPaths = {
   hiace: "/assets/fleet/2018_toyota_hiace_version_2.glb",
   motorcycle: "/assets/fleet/motorcycle_model_planeta_sport.glb",
   scooter: "/assets/fleet/retro_vespa_scooter.glb",
+  truck: "/assets/fleet/shacman_f3000_dump_truck.glb",
+  grassHorizon: "/assets/fleet/grass.png",
   logo: "/assets/tl-mabuhay-logo-transparent.png",
   navalPoster: "/assets/fleet/tl-mabuhay-naval-poster.png",
   coursesBanner: "/assets/fleet/tl-mabuhay-courses-banner.png",
@@ -39,6 +41,44 @@ function tuneMaterial(material: THREE.Material, role?: VehicleRole) {
       tuned.color.set(0x0d285b);
       tuned.metalness = 0.82;
       tuned.roughness = 0.22;
+    }
+
+    if (role === "truck") {
+      // Crisp white automotive paint on cabin, dump bed, and body panels
+      if (
+        /main|108|body|panel|object_0|object_41/i.test(name) ||
+        (tuned.color && tuned.color.r > 0.6 && tuned.color.g < 0.3)
+      ) {
+        tuned.color.set(0xf8fafc);
+        tuned.roughness = 0.30;
+        tuned.metalness = 0.04;
+        tuned.envMapIntensity = 1.35;
+      }
+
+      // Windshield & side window cab glass
+      if (name.includes("133") || name.includes("glass")) {
+        tuned.color.set(0x0c1e30);
+        tuned.roughness = 0.06;
+        tuned.metalness = 0.15;
+        tuned.transparent = true;
+        tuned.opacity = 0.85;
+        tuned.depthWrite = true;
+        tuned.side = THREE.FrontSide;
+      }
+
+      // Chrome emblems, grille & exhaust trim
+      if (name.includes("126") || name.includes("icon")) {
+        tuned.color.set(0xecf0f5);
+        tuned.metalness = 0.92;
+        tuned.roughness = 0.14;
+      }
+
+      // Dark chassis frame / rubber tires / bumper
+      if (/hamm_black|109|116|117|004|tire|wheel|bak\.002/i.test(name)) {
+        tuned.color.set(0x18202c);
+        tuned.roughness = 0.76;
+        tuned.metalness = 0.15;
+      }
     }
 
     if ((role === "motorcycle" || role === "scooter") && name.includes("orange")) {
@@ -76,6 +116,22 @@ function tuneMaterial(material: THREE.Material, role?: VehicleRole) {
       tuned.polygonOffsetUnits = -1;
     }
 
+    if (/foliage|tree|shrub|landscape_green/i.test(name)) {
+      if (name.includes("blue_green")) {
+        tuned.color.set(0x287850);
+      } else {
+        tuned.color.set(0x1e5e3a);
+      }
+      tuned.roughness = 0.72;
+      tuned.metalness = 0.02;
+    }
+
+    if (/twilight_terrain|deep_navy_terrain/i.test(name)) {
+      tuned.color.set(0x122e46);
+      tuned.roughness = 0.75;
+      tuned.metalness = 0.05;
+    }
+
     if (/sign_artwork|logo_artwork|warm_light|facade_downlight/.test(name)) {
       tuned.emissive.set(0xf3b61f);
       tuned.emissiveIntensity = 0.48;
@@ -104,7 +160,16 @@ function prepareModel(root: THREE.Object3D, role?: VehicleRole) {
 
     const materials = Array.isArray(child.material) ? child.material : [child.material];
     const materialNames = materials.map((material) => material.name.toLowerCase()).join(" ");
-    if (/arrival_arrow|facade_downlight/i.test(child.name)) {
+
+    // Remove legacy 2D flat brown billboard backdrop meshes, floor light pools, and temporary guides
+    if (
+      /arrival_arrow|facade_downlight|repository_twilight_backdrop|horizon_gold_disc|far_horizon|mid_horizon|near_horizon|entry_warm_light_pool|warm_light_pool|light_pool/i.test(
+        child.name
+      ) ||
+      /repository_twilight_backdrop_artwork|tl_gold_horizon_glow|far_horizon_material|mid_horizon_material|near_horizon_material|warm_arrival_light_pool/i.test(
+        materialNames
+      )
+    ) {
       child.visible = false;
       return;
     }
@@ -128,6 +193,23 @@ function prepareModel(root: THREE.Object3D, role?: VehicleRole) {
       return;
     }
 
+    if (/wheelchair_wheel|wheelchair_head|wheelchair_body|wheelchair_arm|wheelchair_leg/i.test(child.name)) {
+      child.visible = false;
+      return;
+    }
+
+    // Remove cartoon lollipop trees along the approach road in favor of clean roadside grass shoulders
+    if (/editorial_tree/i.test(child.name)) {
+      child.visible = false;
+      return;
+    }
+
+    // Remove outer background perimeter rim borders while keeping the driving guide lines and road gold edge beside the truck
+    if (/environment_gold_rim/i.test(child.name)) {
+      child.visible = false;
+      return;
+    }
+
     child.castShadow = role !== undefined;
     child.receiveShadow = true;
     child.frustumCulled = role !== "van";
@@ -136,6 +218,66 @@ function prepareModel(root: THREE.Object3D, role?: VehicleRole) {
       ? child.material.map((material) => tuneMaterial(material, role))
       : tuneMaterial(child.material, role);
   });
+}
+
+function createAccessibleParkingTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return new THREE.CanvasTexture(canvas);
+
+  ctx.clearRect(0, 0, 512, 512);
+
+  // Pure white thermoplastic road-marking paint with transparent background (matches parking stall blue seamlessly)
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 14;
+  ctx.beginPath();
+  if (typeof ctx.roundRect === "function") {
+    ctx.roundRect(24, 24, 464, 464, 38);
+  } else {
+    ctx.rect(24, 24, 464, 464);
+  }
+  ctx.stroke();
+
+  // White wheelchair symbol
+  ctx.fillStyle = "#ffffff";
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  // Head
+  ctx.beginPath();
+  ctx.arc(260, 115, 34, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Wheel (C-curve trimmed at top to create a clean gap from the stickman's back)
+  ctx.lineWidth = 32;
+  ctx.beginPath();
+  ctx.arc(220, 290, 92, -1.62, 0.45, true);
+  ctx.stroke();
+
+  // Torso, Thigh, Leg, Foot
+  ctx.lineWidth = 32;
+  ctx.beginPath();
+  ctx.moveTo(255, 175);
+  ctx.lineTo(255, 280);
+  ctx.lineTo(345, 280);
+  ctx.lineTo(370, 375);
+  ctx.lineTo(405, 375);
+  ctx.stroke();
+
+  // Arm & Hand (Stops cleanly above the thigh, does not cross through the leg)
+  ctx.lineWidth = 28;
+  ctx.beginPath();
+  ctx.moveTo(255, 210);
+  ctx.lineTo(325, 255);
+  ctx.stroke();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  texture.needsUpdate = true;
+  return texture;
 }
 
 function correctBranchArtwork(root: THREE.Object3D) {
@@ -161,7 +303,8 @@ function correctBranchArtwork(root: THREE.Object3D) {
 
   const upperEmblem = root.getObjectByName("Upper_Round_Emblem");
   if (upperEmblem instanceof THREE.Mesh) {
-    upperEmblem.position.set(5.30, 5.70, 1.918);
+    upperEmblem.scale.setScalar(1.35);
+    upperEmblem.position.set(6.35, 5.50, 1.918);
     upperEmblem.renderOrder = 4;
   }
 
@@ -185,14 +328,119 @@ function correctBranchArtwork(root: THREE.Object3D) {
     posterBacking.position.set(-8.58, 1.65, 1.785);
   }
 
-  // Position Left Fascia Sign over Left Showroom window with clean clearance from AC unit and doorway
+  // Reshape and position Left Roof Front Band and Slab so they are seamlessly joined with zero co-planar overlap or z-fighting
+  const leftRoofBand = root.getObjectByName("Left_Roof_Front_Band");
+  if (leftRoofBand instanceof THREE.Mesh) {
+    leftRoofBand.geometry = new THREE.BoxGeometry(7.44, 0.60, 0.30);
+    leftRoofBand.position.set(-6.53, 4.48, 1.83);
+  }
+
+  const leftRoofSlab = root.getObjectByName("Left_Roof_Slab");
+  if (leftRoofSlab instanceof THREE.Mesh) {
+    // Deck sits flush behind the front band (Z=1.68) with 3cm recessed right margin to eliminate z-fighting
+    leftRoofSlab.geometry = new THREE.BoxGeometry(7.38, 0.36, 3.60);
+    leftRoofSlab.position.set(-6.54, 4.37, -0.12);
+  }
+
+  // Scale down the 2nd-floor square window slightly and center it cleanly on the upper facade wall
+  const windowScale = 0.78;
+  const winCenterX = -1.75;
+  const winCenterY = 5.58;
+  const origWinCenterX = -1.85;
+  const origWinCenterY = 5.45;
+
+  const winInterior = root.getObjectByName("Upper_Large_Window_Interior");
+  if (winInterior) {
+    winInterior.scale.set(windowScale, windowScale, 1);
+    winInterior.position.set(winCenterX, winCenterY, 1.675);
+  }
+
+  const winGlass = root.getObjectByName("Upper_Large_Window_Glass");
+  if (winGlass) {
+    winGlass.scale.set(windowScale, windowScale, 1);
+    winGlass.position.set(winCenterX, winCenterY, 1.74);
+  }
+
+  const winGlow = root.getObjectByName("Upper_Window_Warm_Glow");
+  if (winGlow) {
+    winGlow.scale.set(windowScale, windowScale, 1);
+    winGlow.position.set(winCenterX, winCenterY, 1.695);
+  }
+
+  const winTopFrame = root.getObjectByName("Upper_Large_Window_Frame_Top");
+  if (winTopFrame) {
+    winTopFrame.scale.set(windowScale, windowScale, 1);
+    winTopFrame.position.set(winCenterX, winCenterY + (6.425 - origWinCenterY) * windowScale, 1.755);
+  }
+
+  const winBottomFrame = root.getObjectByName("Upper_Large_Window_Frame_Bottom");
+  if (winBottomFrame) {
+    winBottomFrame.scale.set(windowScale, windowScale, 1);
+    winBottomFrame.position.set(winCenterX, winCenterY + (4.475 - origWinCenterY) * windowScale, 1.755);
+  }
+
+  const winLeftFrame = root.getObjectByName("Upper_Large_Window_Frame_Left");
+  if (winLeftFrame) {
+    winLeftFrame.scale.set(windowScale, windowScale, 1);
+    winLeftFrame.position.set(winCenterX + (-2.80 - origWinCenterX) * windowScale, winCenterY, 1.755);
+  }
+
+  const winRightFrame = root.getObjectByName("Upper_Large_Window_Frame_Right");
+  if (winRightFrame) {
+    winRightFrame.scale.set(windowScale, windowScale, 1);
+    winRightFrame.position.set(winCenterX + (-0.90 - origWinCenterX) * windowScale, winCenterY, 1.755);
+  }
+
+  // Align the 3 upper slot windows to match the square window's height and vertical alignment
+  const slotCentersX = [0.15, 1.55, 2.95];
+  for (let slotIndex = 1; slotIndex <= 3; slotIndex += 1) {
+    const slotCenterX = slotCentersX[slotIndex - 1];
+
+    const slotInterior = root.getObjectByName(`Upper_Slot_${slotIndex}_Interior`);
+    if (slotInterior) {
+      slotInterior.scale.set(1, windowScale, 1);
+      slotInterior.position.set(slotCenterX, winCenterY, 1.675);
+    }
+
+    const slotGlass = root.getObjectByName(`Upper_Slot_${slotIndex}_Glass`);
+    if (slotGlass) {
+      slotGlass.scale.set(1, windowScale, 1);
+      slotGlass.position.set(slotCenterX, winCenterY, 1.74);
+    }
+
+    const slotTopFrame = root.getObjectByName(`Upper_Slot_${slotIndex}_Frame_Top`);
+    if (slotTopFrame) {
+      slotTopFrame.scale.set(1, windowScale, 1);
+      slotTopFrame.position.set(slotCenterX, winCenterY + (6.425 - origWinCenterY) * windowScale, 1.755);
+    }
+
+    const slotBottomFrame = root.getObjectByName(`Upper_Slot_${slotIndex}_Frame_Bottom`);
+    if (slotBottomFrame) {
+      slotBottomFrame.scale.set(1, windowScale, 1);
+      slotBottomFrame.position.set(slotCenterX, winCenterY + (4.475 - origWinCenterY) * windowScale, 1.755);
+    }
+
+    const slotLeftFrame = root.getObjectByName(`Upper_Slot_${slotIndex}_Frame_Left`);
+    if (slotLeftFrame) {
+      slotLeftFrame.scale.set(1, windowScale, 1);
+      slotLeftFrame.position.set(slotCenterX - 0.25, winCenterY, 1.755);
+    }
+
+    const slotRightFrame = root.getObjectByName(`Upper_Slot_${slotIndex}_Frame_Right`);
+    if (slotRightFrame) {
+      slotRightFrame.scale.set(1, windowScale, 1);
+      slotRightFrame.position.set(slotCenterX + 0.25, winCenterY, 1.755);
+    }
+  }
+
+  // Position Left Fascia Sign over Left Showroom window with clean clearance from AC unit, roof band, and doorway
   const leftSign = root.getObjectByName("Left_TL_Mabuhay_Sign");
   const leftBacking = root.getObjectByName("Left_TL_Mabuhay_Sign_Backing");
   if (leftSign) {
-    leftSign.position.set(-6.93, 3.65, 1.970);
+    leftSign.position.set(-6.93, 3.60, 1.970);
   }
   if (leftBacking) {
-    leftBacking.position.set(-6.93, 3.65, 1.915);
+    leftBacking.position.set(-6.93, 3.60, 1.915);
   }
 
   // Position Main Fascia Sign centered over Main Showroom glass facade
@@ -203,6 +451,110 @@ function correctBranchArtwork(root: THREE.Object3D) {
   }
   if (mainBacking) {
     mainBacking.position.set(3.45, 3.80, 1.905);
+  }
+
+  // Position wall light sconce block in the wall space to the left of the Main Sign (above right of Main Entrance)
+  const leftWallLight = root.getObjectByName("Wall_Light_-275") || root.getObjectByName("Wall_Light_-2.75");
+  if (leftWallLight) {
+    leftWallLight.position.set(-0.55, 3.10, 1.92);
+  }
+
+  // Replace crude/distorted 3D wheelchair meshes with a crisp, authentic painted road-marking decal
+  const accessibleSymbol = root.getObjectByName("Accessible_Parking_Symbol");
+  if (accessibleSymbol) {
+    accessibleSymbol.children.forEach((child) => {
+      child.visible = false;
+    });
+
+    let decalMesh = accessibleSymbol.getObjectByName("Accessible_Parking_Decal_Mesh");
+    if (!decalMesh) {
+      const decalGeo = new THREE.PlaneGeometry(1.85, 1.85);
+      const decalMat = new THREE.MeshBasicMaterial({
+        map: createAccessibleParkingTexture(),
+        transparent: true,
+        opacity: 0.98,
+        side: THREE.FrontSide,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -3,
+        polygonOffsetUnits: -3,
+      });
+      decalMesh = new THREE.Mesh(decalGeo, decalMat);
+      decalMesh.name = "Accessible_Parking_Decal_Mesh";
+      decalMesh.rotation.x = -Math.PI / 2;
+      decalMesh.position.set(0, 0.015, 0);
+      decalMesh.renderOrder = 4;
+      accessibleSymbol.add(decalMesh);
+    }
+    accessibleSymbol.position.set(8.0, 0.045, 6.75);
+  }
+
+  // Ensure the curved access road uses the exact same asphalt material and flush height as the parking lot
+  const parkingAsphalt = root.getObjectByName("Parking_Asphalt");
+  const curvedRoad = root.getObjectByName("Curved_Approach_Asphalt");
+  const leftTerrace = root.getObjectByName("Left_Landscape_Terrace");
+  const rightTerrace = root.getObjectByName("Right_Landscape_Terrace");
+
+  if (leftTerrace) leftTerrace.visible = false;
+  if (rightTerrace) rightTerrace.visible = false;
+
+  if (parkingAsphalt instanceof THREE.Mesh) {
+    parkingAsphalt.position.y = -0.09; // Top surface = 0.00
+  }
+  if (curvedRoad instanceof THREE.Mesh) {
+    if (parkingAsphalt instanceof THREE.Mesh) {
+      curvedRoad.material = parkingAsphalt.material;
+    }
+    curvedRoad.position.y = 0.00; // Top surface = 0.00
+  }
+
+  const frontSidewalk = root.getObjectByName("Front_Sidewalk");
+
+  // Concrete perimeter sidewalk base around the building
+  let buildingSidewalk = root.getObjectByName("Building_Perimeter_Sidewalk");
+  if (!buildingSidewalk && frontSidewalk instanceof THREE.Mesh) {
+    const sidewalkGeo = new THREE.BoxGeometry(22.8, 0.22, 6.4);
+    const sidewalkMesh = new THREE.Mesh(sidewalkGeo, frontSidewalk.material);
+    sidewalkMesh.name = "Building_Perimeter_Sidewalk";
+    sidewalkMesh.position.set(0, 0.01, -0.65);
+    sidewalkMesh.receiveShadow = true;
+    root.add(sidewalkMesh);
+  }
+
+  // Compact sidewalk-proportioned asphalt apron matching close background horizon
+  let unifiedAsphalt = root.getObjectByName("Seamless_Unified_Asphalt");
+  if (!unifiedAsphalt && parkingAsphalt instanceof THREE.Mesh) {
+    const apronGeo = new THREE.PlaneGeometry(36, 28);
+    const apronMesh = new THREE.Mesh(apronGeo, parkingAsphalt.material);
+    apronMesh.name = "Seamless_Unified_Asphalt";
+    apronMesh.rotation.x = -Math.PI / 2;
+    apronMesh.position.set(0, -0.003, 10);
+    apronMesh.receiveShadow = true;
+    apronMesh.renderOrder = -1;
+    root.add(apronMesh);
+  }
+
+  // Ensure road yellow guide line beside the truck is visible and sits above the asphalt
+  const leftGoldEdge = root.getObjectByName("Left_Terrace_Gold_Edge");
+  const rightGoldEdge = root.getObjectByName("Right_Terrace_Gold_Edge");
+  if (leftGoldEdge) {
+    leftGoldEdge.visible = true;
+    leftGoldEdge.position.y = 0.05;
+  }
+  if (rightGoldEdge) {
+    rightGoldEdge.visible = true;
+    rightGoldEdge.position.y = 0.05;
+  }
+
+  // Move the NOW OPEN Enrollment sign to the window pane beside the truck (X = -6.40, not on the door)
+  const enrollmentPoster = root.getObjectByName("Enrollment_Poster");
+  const enrollmentBacking = root.getObjectByName("Enrollment_Poster_Backing");
+  if (enrollmentPoster) {
+    enrollmentPoster.position.set(-6.40, 1.65, 1.82);
+    enrollmentPoster.renderOrder = 3;
+  }
+  if (enrollmentBacking) {
+    enrollmentBacking.position.set(-6.40, 1.65, 1.765);
   }
 }
 
@@ -373,6 +725,43 @@ function addFleetLivery(vehicle: THREE.Group, liveryTexture: THREE.Texture) {
   makePanel(1);
 }
 
+function addTruckLivery(vehicle: THREE.Group, liveryTexture: THREE.Texture) {
+  vehicle.updateMatrixWorld(true);
+
+  const makeDecalMat = () =>
+    new THREE.MeshStandardMaterial({
+      map: liveryTexture,
+      transparent: true,
+      opacity: 0.96,
+      alphaTest: 0.05,
+      depthWrite: false,
+      roughness: 0.32,
+      metalness: 0.04,
+      side: THREE.FrontSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -3,
+      polygonOffsetUnits: -3,
+    });
+
+  // Dump Bed / Dumper Sides: 2.55m wide x 0.68m high, lowered onto the central dumper body panel at Y=1.72m, Z=-0.92m
+  const bedGeometry = new THREE.PlaneGeometry(2.55, 0.68);
+  const bedOffset = 1.30;
+
+  const leftBed = new THREE.Mesh(bedGeometry, makeDecalMat());
+  leftBed.name = "Truck_Livery_Left_Bed";
+  leftBed.position.set(-bedOffset, 1.72, -0.92);
+  leftBed.rotation.y = -Math.PI / 2;
+  leftBed.renderOrder = 4;
+  vehicle.add(leftBed);
+
+  const rightBed = new THREE.Mesh(bedGeometry, makeDecalMat());
+  rightBed.name = "Truck_Livery_Right_Bed";
+  rightBed.position.set(bedOffset, 1.72, -0.92);
+  rightBed.rotation.y = Math.PI / 2;
+  rightBed.renderOrder = 4;
+  vehicle.add(rightBed);
+}
+
 function addSentraLivery(
   vehicle: THREE.Group,
   textures: { left?: THREE.Texture; right?: THREE.Texture; rear?: THREE.Texture }
@@ -502,6 +891,47 @@ function addNavalBranchPoster(world: THREE.Group, posterTexture: THREE.Texture) 
   world.add(posterGroup);
 }
 
+function addPanoramicGrassBackdrop(world: THREE.Group, texture: THREE.Texture) {
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  // Un-mirror texture to match original image orientation exactly
+  texture.repeat.set(-1, 1);
+  texture.offset.set(1, 0);
+  texture.needsUpdate = true;
+
+  // Intimate close-proximity Curved Grass Horizon Backdrop
+  const arcRadius = 24;
+  const height = 36;
+  const geometry = new THREE.CylinderGeometry(
+    arcRadius,
+    arcRadius,
+    height,
+    64,
+    1,
+    true,
+    Math.PI * 0.85,
+    Math.PI * 1.30
+  );
+
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    toneMapped: false,
+  });
+
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = "Panoramic_Grass_Backdrop";
+  mesh.position.set(0, 11.5, 9.0);
+  mesh.renderOrder = -1;
+
+  world.add(mesh);
+}
+
 export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -569,7 +999,7 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
       room.dispose();
       pmrem.dispose();
 
-      const camera = new THREE.PerspectiveCamera(37, 1, 0.1, 180);
+      const camera = new THREE.PerspectiveCamera(37, 1, 0.1, 400);
       const cameraPosition = new THREE.Vector3();
       const cameraTarget = new THREE.Vector3();
 
@@ -606,11 +1036,6 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
       interiorFill.position.set(0, 2.8, 0.0);
       scene.add(interiorFill);
 
-      const arrivalPool = new THREE.SpotLight(0xffc55c, 4.2, 18, Math.PI / 4.6, 0.74, 1.5);
-      arrivalPool.position.set(-1.5, 9, 11);
-      arrivalPool.target.position.set(0, 0, 6.75);
-      scene.add(arrivalPool, arrivalPool.target);
-
       const world = new THREE.Group();
       scene.add(world);
 
@@ -630,6 +1055,16 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
         addMotorcycleParkingArea(world);
 
         const textureLoader = new THREE.TextureLoader();
+
+        // 3D Panoramic Grass Landscape Backdrop from Downloads grass.png
+        void textureLoader.loadAsync(assetPaths.grassHorizon).then((grassTexture) => {
+          if (!disposed) {
+            addPanoramicGrassBackdrop(world, grassTexture);
+          }
+        }).catch((err) => {
+          console.warn("Grass horizon backdrop could not load.", err);
+        });
+
         void textureLoader.loadAsync(assetPaths.navalPoster).then((posterTexture) => {
           if (!disposed) {
             addNavalBranchPoster(world, posterTexture);
@@ -641,7 +1076,10 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
         void textureLoader.loadAsync(assetPaths.coursesBanner).then((bannerTexture) => {
           if (disposed) return;
           bannerTexture.colorSpace = THREE.SRGBColorSpace;
-          bannerTexture.anisotropy = 8;
+          bannerTexture.generateMipmaps = true;
+          bannerTexture.minFilter = THREE.LinearMipmapLinearFilter;
+          bannerTexture.magFilter = THREE.LinearFilter;
+          bannerTexture.anisotropy = 16;
           bannerTexture.needsUpdate = true;
 
           const leftSign = branch.getObjectByName("Left_TL_Mabuhay_Sign");
@@ -652,18 +1090,18 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
             leftSign.geometry = new THREE.PlaneGeometry(bannerWidth, bannerHeight);
             leftSign.material = new THREE.MeshStandardMaterial({
               map: bannerTexture,
-              roughness: 0.35,
+              roughness: 0.30,
               metalness: 0.04,
-              emissive: 0xf3b61f,
-              emissiveIntensity: 0.12,
+              emissive: 0xffffff,
+              emissiveIntensity: 0.08,
               side: THREE.FrontSide,
             });
-            leftSign.position.set(-6.93, 3.65, 1.970);
+            leftSign.position.set(-6.40, 3.60, 1.970);
             leftSign.renderOrder = 3;
           }
           if (leftBacking instanceof THREE.Mesh) {
-            leftBacking.geometry = new THREE.BoxGeometry(3.05, 1.186, 0.08);
-            leftBacking.position.set(-6.93, 3.65, 1.915);
+            leftBacking.geometry = new THREE.BoxGeometry(3.05, 1.14, 0.08);
+            leftBacking.position.set(-6.40, 3.60, 1.915);
           }
         }).catch((err) => {
           console.warn("Courses banner could not load.", err);
@@ -713,11 +1151,12 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
               loader.loadAsync(assetPaths.hiace),
               loader.loadAsync(assetPaths.motorcycle),
               loader.loadAsync(assetPaths.scooter),
+              loader.loadAsync(assetPaths.truck),
               new THREE.TextureLoader().loadAsync(assetPaths.logo),
             ]);
             if (disposed) return;
 
-            const logoResult = supportResults[3];
+            const logoResult = supportResults[4];
             const liveryTexture = createFleetLiveryTexture(
               logoResult.status === "fulfilled" ? logoResult.value : undefined
             );
@@ -726,9 +1165,18 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
             if (hiaceResult.status === "fulfilled") {
               const hiace = fitVehicle(hiaceResult.value.scene, 4.55, "van");
               if (liveryTexture) addFleetLivery(hiace, liveryTexture);
-              hiace.position.set(-4, 0.15, 6.75);
+              hiace.position.set(-3.85, 0.15, 6.75);
               hiace.rotation.y = viewerFacingHeading;
               world.add(hiace);
+            }
+
+            const truckResult = supportResults[3];
+            if (truckResult.status === "fulfilled") {
+              const truck = fitVehicle(truckResult.value.scene, 7.4, "truck");
+              if (liveryTexture) addTruckLivery(truck, liveryTexture);
+              truck.position.set(-7.95, 0.15, 6.75);
+              truck.rotation.y = viewerFacingHeading;
+              world.add(truck);
             }
 
             const motorcycleResult = supportResults[1];
@@ -766,16 +1214,19 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
         const compact = width < 760;
 
         camera.aspect = width / height;
-        camera.fov = compact ? 47 : 37;
+        camera.fov = compact ? 50 : 43;
         camera.updateProjectionMatrix();
         renderer?.setSize(width, height, false);
 
         if (compact) {
-          cameraPosition.set(13.7, 9.2, 23.4);
-          cameraTarget.set(0, 2.2, 6.2);
+          cameraPosition.set(11.5, 9.8, 26.5);
+          cameraPosition.set(11.5, 8.2, 25.0);
+          cameraTarget.set(-3.2, 2.2, 6.2);
         } else {
-          cameraPosition.set(11.5, 6.7, 15.8);
-          cameraTarget.set(0, 2.25, 5.8);
+          cameraPosition.set(8.8, 7.5, 20.8);
+          cameraTarget.set(-4.5, 2.4, 5.8);
+          cameraPosition.set(9.2, 5.6, 18.2);
+          cameraTarget.set(-3.2, 2.4, 5.8);
         }
       };
 
@@ -824,3 +1275,4 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
     </div>
   );
 }
+

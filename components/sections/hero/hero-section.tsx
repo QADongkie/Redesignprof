@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowIcon } from "@/components/common/icons";
-import { ShowcaseCanvas } from "@/components/sections/hero/showcase-canvas";
+import { FinalArrivalCanvas } from "@/components/sections/final-arrival-canvas";
 
 export function HeroSection({
   onSceneReady,
@@ -11,13 +11,20 @@ export function HeroSection({
   return (
     <section className="hero-section" id="hero">
       <div className="hero-visual">
-        <ShowcaseCanvas onReady={onSceneReady} />
+        <FinalArrivalCanvas onReady={() => onSceneReady(true)} />
+        <div className="arrival-atmosphere" aria-hidden="true">
+          <div className="arrival-ring-wrapper">
+            <div className="arrival-ring-core" />
+            <div className="arrival-ring-pulse" />
+            <div className="arrival-ring-glow" />
+          </div>
+        </div>
       </div>
 
       <div className="hero-content">
         <div className="hero-copy">
           <p className="eyebrow" data-hero-line>
-            <i /> LTO-accredited driving school
+            <i /> TL Mabuhay Driving Lesson Academy
           </p>
           <h1 id="hero-title" data-hero-line>
             Your Defensive<br />
@@ -34,23 +41,6 @@ export function HeroSection({
               Explore courses
             </a>
           </div>
-          <div className="hero-proof" data-hero-line>
-            <div>
-              <strong>147</strong>
-              <span>branches</span>
-            </div>
-            <div>
-              <strong>160K+</strong>
-              <span>drivers trained</span>
-            </div>
-            <div>
-              <strong>2017</strong>
-              <span>established</span>
-            </div>
-          </div>
-        </div>
-        <div className="scroll-prompt" data-hero-line>
-          <i /> Scroll to explore courses
         </div>
       </div>
     </section>

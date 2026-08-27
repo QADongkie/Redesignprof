@@ -2,27 +2,21 @@
 
 import { useCallback, useState } from "react";
 import { ArrowIcon } from "@/components/common/icons";
-import { FinalArrivalCanvas } from "@/components/sections/final-arrival-canvas";
+import { ShowcaseCanvas } from "@/components/sections/hero/showcase-canvas";
 
 export function FinalCtaSection() {
   const [sceneReady, setSceneReady] = useState(false);
-  const [arrived, setArrived] = useState(false);
-  const handleReady = useCallback(() => setSceneReady(true), []);
-  const handleArrived = useCallback(() => setArrived(true), []);
+
+  const handleReady = useCallback((ready: boolean) => setSceneReady(ready), []);
 
   return (
     <section
-      className={`final-arrival${sceneReady ? " is-scene-ready" : ""}${arrived ? " is-arrived" : ""}`}
+      className={`final-arrival${sceneReady ? " is-scene-ready" : ""}`}
       id="arrival"
       aria-labelledby="arrival-title"
     >
-      <FinalArrivalCanvas onReady={handleReady} onArrived={handleArrived} />
-      <div className="arrival-atmosphere" aria-hidden="true">
-        <div className="arrival-ring-wrapper">
-          <div className="arrival-ring-core" />
-          <div className="arrival-ring-pulse" />
-          <div className="arrival-ring-glow" />
-        </div>
+      <div className="final-arrival-showcase">
+        <ShowcaseCanvas onReady={handleReady} />
       </div>
 
       <div className="arrival-copy" data-reveal>
@@ -46,7 +40,7 @@ export function FinalCtaSection() {
       <div className="arrival-destination" aria-live="polite">
         <span className="arrival-destination__line" aria-hidden="true" />
         <span>
-          <small>{arrived ? "Destination reached" : "Final destination"}</small>
+          <small>{sceneReady ? "Vehicle showcase" : "TL Mabuhay Fleet"}</small>
           <strong>TL Mabuhay Driving Lesson Academy</strong>
         </span>
       </div>
