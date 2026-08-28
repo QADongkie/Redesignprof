@@ -26,9 +26,8 @@ export default function RoadReadyExperience() {
       <noscript>
         <style>{".brand-intro{display:none!important}html{overflow:auto!important}"}</style>
       </noscript>
-      <a className="skip-link" href="#main-content">
-        Skip to main content
-      </a>
+
+
 
       <SiteHeader />
 

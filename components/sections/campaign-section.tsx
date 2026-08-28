@@ -123,11 +123,6 @@ export function CampaignSection() {
           </div>
         </div>
 
-        {/* HUD Badge: Bottom Right */}
-        <div className="campaign-hud-tag">
-          <span className="hud-pulse-dot" />
-          <span>READY TO DRIVE</span>
-        </div>
 
         {/* Left-side Atmospheric Vignette for Typography Readability */}
         <div className="campaign-vignette" />

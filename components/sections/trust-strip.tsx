@@ -16,15 +16,15 @@ export function TrustStrip() {
           <strong>LTO Driving School</strong>
         </div>
       </div>
-      <div>
+      <div className="trust-strip-item">
         <span>Established</span>
         <strong>Since 2017</strong>
       </div>
-      <div>
+      <div className="trust-strip-item">
         <span>Reach</span>
         <strong>147 branches • 8 regions</strong>
       </div>
-      <div>
+      <div className="trust-strip-item">
         <span>Impact</span>
         <strong>160,000+ drivers trained</strong>
       </div>

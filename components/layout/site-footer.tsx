@@ -11,13 +11,7 @@ export function SiteFooter() {
             <small>YOUR DEFENSIVE DRIVING ADVOCATE</small>
           </span>
         </a>
-        <div className="footer-lto-badge">
-          <Image src="/Land_Transportation_Office.svg" alt="Land Transportation Office" width={40} height={40} />
-          <span>
-            <small>Official Accreditation</small>
-            <strong>LTO Certified Driving School</strong>
-          </span>
-        </div>
+
       </div>
       <nav aria-label="Footer navigation">
         <a href="https://tlmabuhay.com/courses">Courses</a>

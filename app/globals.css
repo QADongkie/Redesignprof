@@ -426,13 +426,13 @@ summary:focus-visible,
   width: 100%;
   height: 100%;
   display: block;
-  cursor: grab;
+  cursor: default;
   touch-action: none;
 }
 
 .driving-canvas:active,
 .showcase-canvas:active {
-  cursor: grabbing;
+  cursor: default;
 }
 
 .hero-content {
@@ -747,11 +747,11 @@ summary:focus-visible,
 }
 
 .course-card:first-child {
-  padding-left: 0;
+  padding-left: clamp(16px, 2vw, 28px);
 }
 
 .course-card:last-child {
-  padding-right: 0;
+  padding-right: clamp(16px, 2vw, 28px);
   border-right: 0;
 }
 
@@ -1025,7 +1025,7 @@ summary:focus-visible,
   width: 100%;
   height: 100%;
   overflow: hidden;
-  cursor: crosshair;
+  cursor: default;
   background: #00152a;
 }
 
@@ -3193,7 +3193,7 @@ summary:focus-visible,
 .faq-journey__layout {
   height: calc(100% - 46px);
   display: grid;
-  grid-template-columns: minmax(190px, 16vw) minmax(0, 1fr) 88px;
+  grid-template-columns: minmax(190px, 16vw) minmax(0, 1fr);
   align-items: center;
   gap: clamp(32px, 5vw, 88px);
 }
@@ -3262,7 +3262,7 @@ summary:focus-visible,
 }
 
 .faq-journey__content {
-  width: min(860px, 100%);
+  width: min(680px, 100%);
   min-height: 540px;
   display: flex;
   align-items: center;

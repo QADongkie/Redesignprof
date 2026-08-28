@@ -127,7 +127,7 @@ export function FaqSection() {
         </div>
 
         <header className="faq-journey__topbar">
-          <p><i aria-hidden="true" /> Questions before you take the wheel?</p>
+          <p>Questions before you take the wheel?</p>
           <span>{stepLabel(activeStep)} / {stepLabel(totalSteps - 1)}</span>
         </header>
 
@@ -197,11 +197,6 @@ export function FaqSection() {
             )}
           </div>
 
-          <aside className="faq-journey__progress" aria-hidden="true">
-            <span>Scroll to explore</span>
-            <i><b /></i>
-            <strong>{Math.round((activeStep / (totalSteps - 1)) * 100)}%</strong>
-          </aside>
         </div>
       </div>
 

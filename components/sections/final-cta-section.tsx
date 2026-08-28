@@ -1,22 +1,19 @@
 "use client";
 
-import { useCallback, useState } from "react";
+
 import { ArrowIcon } from "@/components/common/icons";
 import { ShowcaseCanvas } from "@/components/sections/hero/showcase-canvas";
 
 export function FinalCtaSection() {
-  const [sceneReady, setSceneReady] = useState(false);
-
-  const handleReady = useCallback((ready: boolean) => setSceneReady(ready), []);
 
   return (
     <section
-      className={`final-arrival${sceneReady ? " is-scene-ready" : ""}`}
+      className="final-arrival"
       id="arrival"
       aria-labelledby="arrival-title"
     >
       <div className="final-arrival-showcase">
-        <ShowcaseCanvas onReady={handleReady} />
+        <ShowcaseCanvas onReady={() => { }} />
       </div>
 
       <div className="arrival-copy" data-reveal>
@@ -37,13 +34,7 @@ export function FinalCtaSection() {
         </div>
       </div>
 
-      <div className="arrival-destination" aria-live="polite">
-        <span className="arrival-destination__line" aria-hidden="true" />
-        <span>
-          <small>{sceneReady ? "Vehicle showcase" : "TL Mabuhay Fleet"}</small>
-          <strong>TL Mabuhay Driving Lesson Academy</strong>
-        </span>
-      </div>
+
     </section>
   );
 }

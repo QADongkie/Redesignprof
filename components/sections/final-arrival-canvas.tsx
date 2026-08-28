@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { makeDecalMaterial, refineNissanHoodDecal } from "@/components/sections/shared/nissan-utils";
 
 interface FinalArrivalCanvasProps {
   onReady?: () => void;
@@ -321,11 +322,11 @@ function correctBranchArtwork(root: THREE.Object3D) {
     }
     posterUv.needsUpdate = true;
     poster.geometry = posterGeometry;
-    poster.position.set(-8.58, 1.65, 1.820);
+    poster.position.set(-7.00, 1.65, 1.820);
   }
   if (posterBacking instanceof THREE.Mesh) {
     posterBacking.geometry = new THREE.BoxGeometry(posterWidth + 0.08, posterHeight + 0.08, 0.05);
-    posterBacking.position.set(-8.58, 1.65, 1.785);
+    posterBacking.position.set(-7.00, 1.65, 1.785);
   }
 
   // Reshape and position Left Roof Front Band and Slab so they are seamlessly joined with zero co-planar overlap or z-fighting
@@ -433,14 +434,14 @@ function correctBranchArtwork(root: THREE.Object3D) {
     }
   }
 
-  // Position Left Fascia Sign over Left Showroom window with clean clearance from AC unit, roof band, and doorway
+  // Position Left Fascia Sign over Left Showroom window — shifted left away from door edge
   const leftSign = root.getObjectByName("Left_TL_Mabuhay_Sign");
   const leftBacking = root.getObjectByName("Left_TL_Mabuhay_Sign_Backing");
   if (leftSign) {
-    leftSign.position.set(-6.93, 3.60, 1.970);
+    leftSign.position.set(-6.80, 3.60, 1.970);
   }
   if (leftBacking) {
-    leftBacking.position.set(-6.93, 3.60, 1.915);
+    leftBacking.position.set(-6.80, 3.60, 1.915);
   }
 
   // Position Main Fascia Sign centered over Main Showroom glass facade
@@ -546,72 +547,19 @@ function correctBranchArtwork(root: THREE.Object3D) {
     rightGoldEdge.position.y = 0.05;
   }
 
-  // Move the NOW OPEN Enrollment sign to the window pane beside the truck (X = -6.40, not on the door)
+  // Move the NOW OPEN Enrollment sign — centered in the window, clear of the edge
   const enrollmentPoster = root.getObjectByName("Enrollment_Poster");
   const enrollmentBacking = root.getObjectByName("Enrollment_Poster_Backing");
   if (enrollmentPoster) {
-    enrollmentPoster.position.set(-6.40, 1.65, 1.82);
+    enrollmentPoster.position.set(-6.55, 1.65, 1.82);
     enrollmentPoster.renderOrder = 3;
   }
   if (enrollmentBacking) {
-    enrollmentBacking.position.set(-6.40, 1.65, 1.765);
+    enrollmentBacking.position.set(-6.55, 1.65, 1.765);
   }
 }
 
-function refineNissanHoodDecal(root: THREE.Object3D) {
-  const decal = root.getObjectByName("TL_MABUHAY_HOOD_DECAL");
-  if (!(decal instanceof THREE.Mesh)) return;
 
-  const geometry = decal.geometry.clone();
-  geometry.computeBoundingBox();
-  const bounds = geometry.boundingBox;
-  const position = geometry.getAttribute("position");
-  if (bounds && position) {
-    const center = new THREE.Vector3();
-    bounds.getCenter(center);
-    const scaleFactor = 0.72; // Scaled to ~40cm diameter
-    const slope = -0.2084;
-    const shiftZ = 0.00065; // ~5.9cm shift downwards towards front grille
-    for (let i = 0; i < position.count; i++) {
-      const origX = position.getX(i);
-      const origY = position.getY(i);
-      const origZ = position.getZ(i);
-
-      const x = center.x + (origX - center.x) * scaleFactor;
-      const z = center.z + (origZ - center.z) * scaleFactor + shiftZ;
-      const dz = z - origZ;
-      const y = origY + dz * slope + 0.00004;
-
-      position.setXYZ(i, x, y, z);
-    }
-    position.needsUpdate = true;
-    geometry.computeVertexNormals();
-    geometry.computeBoundingBox();
-    geometry.computeBoundingSphere();
-    decal.geometry = geometry;
-  }
-
-  const sourceMaterial = Array.isArray(decal.material) ? decal.material[0] : decal.material;
-  const sourceMap = sourceMaterial instanceof THREE.MeshBasicMaterial || sourceMaterial instanceof THREE.MeshStandardMaterial
-    ? sourceMaterial.map
-    : null;
-  decal.material = new THREE.MeshStandardMaterial({
-    name: "TL_MABUHAY_AUTOMOTIVE_HOOD_VINYL",
-    map: sourceMap,
-    color: 0xffffff,
-    transparent: true,
-    opacity: 0.96,
-    alphaTest: 0.05,
-    depthWrite: false,
-    roughness: 0.35,
-    metalness: 0.05,
-    side: THREE.FrontSide,
-    polygonOffset: true,
-    polygonOffsetFactor: -3,
-    polygonOffsetUnits: -3,
-  });
-  decal.renderOrder = 4;
-}
 
 function fitVehicle(model: THREE.Object3D, targetLength: number, role: VehicleRole) {
   prepareModel(model, role);
@@ -696,19 +644,8 @@ function addFleetLivery(vehicle: THREE.Group, liveryTexture: THREE.Texture) {
   const sideOffset = 0.898;
 
   const makePanel = (side: -1 | 1) => {
-    const panelMaterial = new THREE.MeshStandardMaterial({
-      map: liveryTexture,
-      transparent: true,
-      opacity: 0.96,
-      alphaTest: 0.05,
-      depthWrite: false,
-      roughness: 0.35,
-      metalness: 0.05,
-      side: THREE.FrontSide,
-      polygonOffset: true,
-      polygonOffsetFactor: -3,
-      polygonOffsetUnits: -3,
-    });
+    const panelMaterial = makeDecalMaterial(liveryTexture);
+    panelMaterial.opacity = 0.96;
     const panel = new THREE.Mesh(panelGeometry, panelMaterial);
     panel.name = side === 1 ? "TL_Mabuhay_Livery_Right" : "TL_Mabuhay_Livery_Left";
     panel.position.set(
@@ -728,20 +665,7 @@ function addFleetLivery(vehicle: THREE.Group, liveryTexture: THREE.Texture) {
 function addTruckLivery(vehicle: THREE.Group, liveryTexture: THREE.Texture) {
   vehicle.updateMatrixWorld(true);
 
-  const makeDecalMat = () =>
-    new THREE.MeshStandardMaterial({
-      map: liveryTexture,
-      transparent: true,
-      opacity: 0.96,
-      alphaTest: 0.05,
-      depthWrite: false,
-      roughness: 0.32,
-      metalness: 0.04,
-      side: THREE.FrontSide,
-      polygonOffset: true,
-      polygonOffsetFactor: -3,
-      polygonOffsetUnits: -3,
-    });
+  const makeDecalMat = () => makeDecalMaterial(liveryTexture);
 
   // Dump Bed / Dumper Sides: 2.55m wide x 0.68m high, lowered onto the central dumper body panel at Y=1.72m, Z=-0.92m
   const bedGeometry = new THREE.PlaneGeometry(2.55, 0.68);
@@ -768,20 +692,7 @@ function addSentraLivery(
 ) {
   vehicle.updateMatrixWorld(true);
 
-  const createDecalMaterial = (tex?: THREE.Texture) =>
-    new THREE.MeshStandardMaterial({
-      map: tex,
-      transparent: true,
-      opacity: 0.96,
-      alphaTest: 0.05,
-      depthWrite: false,
-      roughness: 0.35,
-      metalness: 0.05,
-      side: THREE.FrontSide,
-      polygonOffset: true,
-      polygonOffsetFactor: -3,
-      polygonOffsetUnits: -3,
-    });
+  const createDecalMaterial = (tex?: THREE.Texture) => makeDecalMaterial(tex);
 
   const sideGeometry = new THREE.PlaneGeometry(1.36, 0.318);
 
@@ -1096,12 +1007,12 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
               emissiveIntensity: 0.08,
               side: THREE.FrontSide,
             });
-            leftSign.position.set(-6.40, 3.60, 1.970);
+            leftSign.position.set(-6.80, 3.60, 1.970); // shifted left, away from door edge
             leftSign.renderOrder = 3;
           }
           if (leftBacking instanceof THREE.Mesh) {
             leftBacking.geometry = new THREE.BoxGeometry(3.05, 1.14, 0.08);
-            leftBacking.position.set(-6.40, 3.60, 1.915);
+            leftBacking.position.set(-6.80, 3.60, 1.915);
           }
         }).catch((err) => {
           console.warn("Courses banner could not load.", err);
@@ -1219,12 +1130,9 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
         renderer?.setSize(width, height, false);
 
         if (compact) {
-          cameraPosition.set(11.5, 9.8, 26.5);
           cameraPosition.set(11.5, 8.2, 25.0);
           cameraTarget.set(-3.2, 2.2, 6.2);
         } else {
-          cameraPosition.set(8.8, 7.5, 20.8);
-          cameraTarget.set(-4.5, 2.4, 5.8);
           cameraPosition.set(9.2, 5.6, 18.2);
           cameraTarget.set(-3.2, 2.4, 5.8);
         }
