@@ -20,7 +20,7 @@ const assetPaths = {
   motorcycle: "/assets/fleet/motorcycle_model_planeta_sport.glb",
   scooter: "/assets/fleet/retro_vespa_scooter.glb",
   truck: "/assets/fleet/shacman_f3000_dump_truck.glb",
-  grassHorizon: "/assets/fleet/grass.png",
+  grassHorizon: "/assets/fleet/grass.webp",
   logo: "/assets/tl-mabuhay-logo-transparent.png",
   navalPoster: "/assets/fleet/tl-mabuhay-naval-poster.png",
   coursesBanner: "/assets/fleet/tl-mabuhay-courses-banner.png",
@@ -860,6 +860,7 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
     let animationFrame = 0;
     let renderer: THREE.WebGLRenderer | null = null;
     let resizeObserver: ResizeObserver | null = null;
+    let dracoLoader: any = null;
 
     const pointer = new THREE.Vector2();
 
@@ -873,10 +874,16 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
       { rootMargin: "900px 0px" }
     );
 
+    let renderFrameFn: ((time: number) => void) | null = null;
     const visibilityObserver = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
+        const wasVisible = sceneVisible;
         sceneVisible = entry.isIntersecting;
+        if (sceneVisible && !wasVisible && renderFrameFn) {
+          window.cancelAnimationFrame(animationFrame);
+          animationFrame = window.requestAnimationFrame(renderFrameFn);
+        }
       },
       { threshold: 0 }
     );
@@ -889,18 +896,21 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
     };
 
     async function initializeScene() {
+      const isMobile = window.innerWidth < 768;
       renderer = new THREE.WebGLRenderer({
         canvas: stableCanvas,
         antialias: true,
         alpha: true,
-        powerPreference: "high-performance",
+        powerPreference: isMobile ? "default" : "high-performance",
       });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio || 1, 2));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.24;
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.shadowMap.enabled = !isMobile;
+      if (!isMobile) {
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      }
 
       const scene = new THREE.Scene();
       const pmrem = new THREE.PMREMGenerator(renderer);
@@ -950,7 +960,54 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
       const world = new THREE.Group();
       scene.add(world);
 
+      // Spring Pop-in Entrance Physics Manager (zero extra draw calls / zero lag)
+      interface PopInItem {
+        object: THREE.Object3D;
+        targetScale: THREE.Vector3;
+        targetY: number;
+        currentScale: number;
+        velocity: number;
+        stiffness: number;
+        damping: number;
+        yOffset: number;
+        delay: number;
+      }
+      const activePopIns: PopInItem[] = [];
+
+      const triggerPopIn = (
+        object: THREE.Object3D,
+        options?: {
+          stiffness?: number;
+          damping?: number;
+          yOffset?: number;
+          delay?: number;
+        }
+      ) => {
+        const targetScale = object.scale.clone();
+        const targetY = object.position.y;
+        const yOffset = options?.yOffset ?? 0.4;
+
+        object.scale.set(0.0001, 0.0001, 0.0001);
+        object.position.y = targetY - yOffset;
+
+        activePopIns.push({
+          object,
+          targetScale,
+          targetY,
+          currentScale: 0.0001,
+          velocity: 0,
+          stiffness: options?.stiffness ?? 170,
+          damping: options?.damping ?? 16,
+          yOffset,
+          delay: options?.delay ?? 0,
+        });
+      };
+
+      const { DRACOLoader } = await import("three/examples/jsm/loaders/DRACOLoader.js");
+      dracoLoader = new DRACOLoader();
+      dracoLoader.setDecoderPath("/draco/");
       const loader = new GLTFLoader();
+      loader.setDRACOLoader(dracoLoader);
       const viewerFacingHeading = 0;
 
       try {
@@ -963,7 +1020,8 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
         const embeddedVehicle = branch.getObjectByName("Student_Driver_Car");
         if (embeddedVehicle) embeddedVehicle.visible = false;
         world.add(branch);
-        addMotorcycleParkingArea(world);
+        addMotorcycleParkingArea(branch);
+        triggerPopIn(branch, { stiffness: 140, damping: 14, yOffset: 1.2, delay: 0.15 });
 
         const textureLoader = new THREE.TextureLoader();
 
@@ -978,7 +1036,7 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
 
         void textureLoader.loadAsync(assetPaths.navalPoster).then((posterTexture) => {
           if (!disposed) {
-            addNavalBranchPoster(world, posterTexture);
+            addNavalBranchPoster(branch, posterTexture);
           }
         }).catch((err) => {
           console.warn("Naval branch poster could not load.", err);
@@ -1038,6 +1096,7 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
           heroVehicle.position.set(0, 0.15, 6.75);
           heroVehicle.rotation.y = viewerFacingHeading;
           world.add(heroVehicle);
+          triggerPopIn(heroVehicle, { stiffness: 180, damping: 16, yOffset: 0.4, delay: 0.55 });
 
           void Promise.allSettled([
             textureLoader.loadAsync(assetPaths.sentraSideLeft),
@@ -1057,59 +1116,74 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
 
         const compactLayout = stableHost.clientWidth < 760;
         if (!compactLayout) {
-          const loadSupportFleet = async () => {
-            const supportResults = await Promise.allSettled([
-              loader.loadAsync(assetPaths.hiace),
-              loader.loadAsync(assetPaths.motorcycle),
-              loader.loadAsync(assetPaths.scooter),
-              loader.loadAsync(assetPaths.truck),
-              new THREE.TextureLoader().loadAsync(assetPaths.logo),
-            ]);
-            if (disposed) return;
+          const liveryPromise = new THREE.TextureLoader()
+            .loadAsync(assetPaths.logo)
+            .then((logoTex) => createFleetLiveryTexture(logoTex))
+            .catch(() => createFleetLiveryTexture());
 
-            const logoResult = supportResults[4];
-            const liveryTexture = createFleetLiveryTexture(
-              logoResult.status === "fulfilled" ? logoResult.value : undefined
-            );
-
-            const hiaceResult = supportResults[0];
-            if (hiaceResult.status === "fulfilled") {
-              const hiace = fitVehicle(hiaceResult.value.scene, 4.55, "van");
-              if (liveryTexture) addFleetLivery(hiace, liveryTexture);
+          // 1. HiAce Van - loads and pops in independently
+          loader.load(
+            assetPaths.hiace,
+            async (gltf) => {
+              if (disposed) return;
+              const liveryTex = await liveryPromise;
+              const hiace = fitVehicle(gltf.scene, 4.55, "van");
+              if (liveryTex) addFleetLivery(hiace, liveryTex);
               hiace.position.set(-3.85, 0.15, 6.75);
               hiace.rotation.y = viewerFacingHeading;
               world.add(hiace);
-            }
+              triggerPopIn(hiace, { stiffness: 165, damping: 15, yOffset: 0.35 });
+            },
+            undefined,
+            (err) => console.warn("HiAce van failed to load.", err)
+          );
 
-            const truckResult = supportResults[3];
-            if (truckResult.status === "fulfilled") {
-              const truck = fitVehicle(truckResult.value.scene, 7.4, "truck");
-              if (liveryTexture) addTruckLivery(truck, liveryTexture);
+          // 2. Dump Truck - loads and pops in independently
+          loader.load(
+            assetPaths.truck,
+            async (gltf) => {
+              if (disposed) return;
+              const liveryTex = await liveryPromise;
+              const truck = fitVehicle(gltf.scene, 7.4, "truck");
+              if (liveryTex) addTruckLivery(truck, liveryTex);
               truck.position.set(-7.95, 0.15, 6.75);
               truck.rotation.y = viewerFacingHeading;
               world.add(truck);
-            }
+              triggerPopIn(truck, { stiffness: 145, damping: 14, yOffset: 0.45 });
+            },
+            undefined,
+            (err) => console.warn("Truck failed to load.", err)
+          );
 
-            const motorcycleResult = supportResults[1];
-            if (motorcycleResult.status === "fulfilled") {
-              const motorcycle = fitVehicle(motorcycleResult.value.scene, 2.24, "motorcycle");
+          // 3. Motorcycle - loads and pops in independently
+          loader.load(
+            assetPaths.motorcycle,
+            (gltf) => {
+              if (disposed) return;
+              const motorcycle = fitVehicle(gltf.scene, 2.24, "motorcycle");
               motorcycle.position.set(3.03, 0.15, 6.75);
               motorcycle.rotation.y = viewerFacingHeading;
               world.add(motorcycle);
-            }
+              triggerPopIn(motorcycle, { stiffness: 195, damping: 17, yOffset: 0.25 });
+            },
+            undefined,
+            (err) => console.warn("Motorcycle failed to load.", err)
+          );
 
-            const scooterResult = supportResults[2];
-            if (scooterResult.status === "fulfilled") {
-              const scooter = fitVehicle(scooterResult.value.scene, 1.92, "scooter");
+          // 4. Vespa Scooter - loads and pops in independently
+          loader.load(
+            assetPaths.scooter,
+            (gltf) => {
+              if (disposed) return;
+              const scooter = fitVehicle(gltf.scene, 1.92, "scooter");
               scooter.position.set(4.97, 0.15, 6.75);
               scooter.rotation.y = viewerFacingHeading;
               world.add(scooter);
-            }
-          };
-
-          void loadSupportFleet().catch((error) => {
-            console.warn("The supporting arrival fleet could not finish loading.", error);
-          });
+              triggerPopIn(scooter, { stiffness: 205, damping: 17, yOffset: 0.25 });
+            },
+            undefined,
+            (err) => console.warn("Scooter failed to load.", err)
+          );
         }
 
         onReady?.();
@@ -1127,6 +1201,7 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
         camera.aspect = width / height;
         camera.fov = compact ? 50 : 43;
         camera.updateProjectionMatrix();
+        renderer?.setPixelRatio(compact ? 1.0 : Math.min(window.devicePixelRatio || 1, 2));
         renderer?.setSize(width, height, false);
 
         if (compact) {
@@ -1142,12 +1217,50 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
       resizeObserver.observe(stableHost);
       setCameraFraming();
 
-      const renderFrame = () => {
-        animationFrame = window.requestAnimationFrame(renderFrame);
+      let lastTime = performance.now() / 1000;
+      let lastRenderTime = 0;
+      const targetInterval = window.matchMedia("(pointer: coarse)").matches ? 1000 / 30 : 1000 / 60;
+      let cachedCompact = stableHost.clientWidth < 760;
+
+      const renderFrame = (nowTime: number) => {
         if (!renderer || disposed || !sceneVisible) return;
+        animationFrame = window.requestAnimationFrame(renderFrame);
+
+        if (nowTime - lastRenderTime < targetInterval) return;
+        lastRenderTime = nowTime;
+
+        const now = performance.now() / 1000;
+        const dt = Math.min(now - lastTime, 0.05);
+        lastTime = now;
+
+        // Process active spring pop-ins
+        if (activePopIns.length > 0) {
+          for (let i = activePopIns.length - 1; i >= 0; i--) {
+            const pop = activePopIns[i];
+            if (pop.delay > 0) {
+              pop.delay -= dt;
+              continue;
+            }
+            const force = pop.stiffness * (1 - pop.currentScale) - pop.damping * pop.velocity;
+            pop.velocity += force * dt;
+            pop.currentScale += pop.velocity * dt;
+
+            const scaleFactor = Math.max(0.0001, pop.currentScale);
+            pop.object.scale.copy(pop.targetScale).multiplyScalar(scaleFactor);
+
+            const yProgress = Math.min(Math.max(0, pop.currentScale), 1);
+            pop.object.position.y = pop.targetY - pop.yOffset * (1 - yProgress);
+
+            if (Math.abs(1 - pop.currentScale) < 0.002 && Math.abs(pop.velocity) < 0.002) {
+              pop.object.scale.copy(pop.targetScale);
+              pop.object.position.y = pop.targetY;
+              activePopIns.splice(i, 1);
+            }
+          }
+        }
 
         camera.position.copy(cameraPosition);
-        camera.position.x += pointer.x * (stableHost.clientWidth < 760 ? 0.18 : 0.42);
+        camera.position.x += pointer.x * (cachedCompact ? 0.18 : 0.42);
         camera.position.y += pointer.y * 0.18;
         camera.lookAt(cameraTarget);
 
@@ -1168,6 +1281,7 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
       visibilityObserver.disconnect();
       resizeObserver?.disconnect();
       stableHost.removeEventListener("pointermove", onPointerMove);
+      dracoLoader?.dispose();
       renderer?.dispose();
     };
   }, [onArrived, onReady]);

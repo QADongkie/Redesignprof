@@ -388,14 +388,20 @@ export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
     platformGroup.add(carHolder);
 
     // Load Nissan Model with Decals
-    const loader = new GLTFLoader();
     const textureLoader = new THREE.TextureLoader();
 
-    loader.load(
-      "/assets/2007-nissan-sentra-tl-mabuhay-hood-decal.glb",
-      (gltf) => {
-        const model = gltf.scene;
-        refineNissanHoodDecal(model);
+    void (async () => {
+      const { DRACOLoader } = await import("three/examples/jsm/loaders/DRACOLoader.js");
+      const dracoLoader = new DRACOLoader();
+      dracoLoader.setDecoderPath("/draco/");
+      const loader = new GLTFLoader();
+      loader.setDRACOLoader(dracoLoader);
+
+      loader.load(
+        "/assets/2007-nissan-sentra-tl-mabuhay-hood-decal.glb",
+        (gltf) => {
+          const model = gltf.scene;
+          refineNissanHoodDecal(model);
         const box = new THREE.Box3().setFromObject(model);
         const size = new THREE.Vector3();
         box.getSize(size);
@@ -464,6 +470,7 @@ export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
         onReady(true);
       }
     );
+  })();
 
     // Interactive mouse drag and inertia
     let isDragging = false;

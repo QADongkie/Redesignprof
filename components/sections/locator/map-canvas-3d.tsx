@@ -38,16 +38,24 @@ export function MapCanvas3D({
     if (!canvas) return;
 
     // ── Renderer ─────────────────────────────────────────────────────────────
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: true,
+        alpha: true,
+        powerPreference: isMobile ? "low-power" : "default",
+      });
     } catch {
       return;
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.enabled = !isMobile;
+    if (!isMobile) {
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    }
 
     // ── Scene & Camera ────────────────────────────────────────────────────────
     const scene = new THREE.Scene();
@@ -124,78 +132,82 @@ export function MapCanvas3D({
     const clickTargets: Array<{ mesh: THREE.Mesh; id: string }> = [];
 
     // ── Load GLB map model ────────────────────────────────────────────────────
-    const loader = new GLTFLoader();
-    loader.load(
-      "/assets/philippines-geography-map-3d.glb",
-      (gltf) => {
-        const model = gltf.scene;
+    void (async () => {
+      const { DRACOLoader } = await import("three/examples/jsm/loaders/DRACOLoader.js");
+      const dracoLoader = new DRACOLoader();
+      dracoLoader.setDecoderPath("/draco/");
+      const loader = new GLTFLoader();
+      loader.setDRACOLoader(dracoLoader);
+      loader.load(
+        "/assets/philippines-geography-map-3d.glb",
+        (gltf) => {
+          const model = gltf.scene;
 
-        const box = new THREE.Box3().setFromObject(model);
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-        model.position.sub(center);
+          const box = new THREE.Box3().setFromObject(model);
+          const center = new THREE.Vector3();
+          box.getCenter(center);
+          model.position.sub(center);
 
-        model.traverse((child) => {
-          if ((child as THREE.Mesh).isMesh) {
-            const mesh = child as THREE.Mesh;
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
+          model.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh) {
+              const mesh = child as THREE.Mesh;
+              mesh.castShadow = true;
+              mesh.receiveShadow = true;
 
-            const existingMat = mesh.material as THREE.MeshStandardMaterial;
-            if (existingMat) {
-              existingMat.roughness = 0.38;
-              existingMat.metalness = 0.15;
-              existingMat.needsUpdate = true;
+              const existingMat = mesh.material as THREE.MeshStandardMaterial;
+              if (existingMat) {
+                existingMat.roughness = 0.38;
+                existingMat.metalness = 0.15;
+                existingMat.needsUpdate = true;
+              }
             }
-          }
-        });
+          });
 
-        mapGroup.add(model);
+          // Build 3D pins attached directly to each island anchor
+          branches.forEach((branch) => {
+            const anchorConfig = PIN_ANCHORS[branch.id];
+            if (!anchorConfig) return;
 
-        // Build 3D pins attached directly to each island anchor
-        branches.forEach((branch) => {
-          const anchorConfig = PIN_ANCHORS[branch.id];
-          if (!anchorConfig) return;
+            let pinPos = new THREE.Vector3(anchorConfig.x, anchorConfig.y, anchorConfig.z);
+            const anchorNode = model.getObjectByName(anchorConfig.nodeName);
+            if (anchorNode) {
+              pinPos = anchorNode.position.clone();
+            }
 
-          let pinPos = new THREE.Vector3(anchorConfig.x, anchorConfig.y, anchorConfig.z);
-          const anchorNode = model.getObjectByName(anchorConfig.nodeName);
-          if (anchorNode) {
-            pinPos = anchorNode.position.clone();
-          }
+            const group = new THREE.Group();
+            group.position.copy(pinPos);
 
-          const group = new THREE.Group();
-          group.position.copy(pinPos);
+            const stalk = new THREE.Mesh(stalkGeo, stalkMat);
+            stalk.rotation.x = Math.PI / 2;
+            stalk.position.z = 0.21;
+            stalk.castShadow = true;
+            group.add(stalk);
 
-          const stalk = new THREE.Mesh(stalkGeo, stalkMat);
-          stalk.rotation.x = Math.PI / 2;
-          stalk.position.z = 0.21;
-          stalk.castShadow = true;
-          group.add(stalk);
+            const head = new THREE.Mesh(pinGeo, matDefault.clone());
+            head.position.z = 0.46;
+            head.castShadow = true;
+            group.add(head);
 
-          const head = new THREE.Mesh(pinGeo, matDefault.clone());
-          head.position.z = 0.46;
-          head.castShadow = true;
-          group.add(head);
+            const ring = new THREE.Mesh(ringGeo, matDefault.clone());
+            ring.position.z = 0.05;
+            group.add(ring);
 
-          const ring = new THREE.Mesh(ringGeo, matDefault.clone());
-          ring.position.z = 0.05;
-          group.add(ring);
+            const hitGeo = new THREE.SphereGeometry(0.42, 12, 12);
+            const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
+            hitMesh.position.z = 0.38;
+            group.add(hitMesh);
+            clickTargets.push({ mesh: hitMesh, id: branch.id });
 
-          const hitGeo = new THREE.SphereGeometry(0.42, 12, 12);
-          const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
-          hitMesh.position.z = 0.38;
-          group.add(hitMesh);
-          clickTargets.push({ mesh: hitMesh, id: branch.id });
+            model.add(group);
+            pinMeshes.push({ id: branch.id, group, head, ring });
+          });
 
-          model.add(group);
-          pinMeshes.push({ id: branch.id, group, head, ring });
-        });
-      },
-      undefined,
-      (err) => {
-        console.warn("Map GLB failed to load:", err);
-      }
-    );
+          mapGroup.add(model);
+        },
+        undefined,
+        (error) => console.warn("3D map failed to load.", error)
+      );
+    })();
 
     // ── Interactive Mouse / Cursor Drag & Tilt ───────────────────────────────
     const BASE_ROT_X = 0.38;
@@ -317,6 +329,7 @@ export function MapCanvas3D({
       camera.updateProjectionMatrix();
     };
 
+    resize();
     const resizeObserver = new ResizeObserver(() => {
       resize();
     });
@@ -325,8 +338,16 @@ export function MapCanvas3D({
 
     // ── Render Loop ───────────────────────────────────────────────────────────
     let raf = 0;
-    const render = () => {
+    let isVisible = true;
+    let lastRenderTime = 0;
+    const targetInterval = isMobile ? 1000 / 30 : 1000 / 60;
+
+    const render = (now: number) => {
+      if (!isVisible) return;
       raf = requestAnimationFrame(render);
+
+      if (now - lastRenderTime < targetInterval) return;
+      lastRenderTime = now;
 
       currentRotX += (targetRotX - currentRotX) * 0.08;
       currentRotY += (targetRotY - currentRotY) * 0.08;
@@ -352,10 +373,27 @@ export function MapCanvas3D({
 
       renderer.render(scene, camera);
     };
-    render();
+
+    // Initial render trigger
+    render(performance.now());
+
+    // ── Visibility Observer (Save GPU cycles when out of view) ───────────────
+    const visibilityObserver = new IntersectionObserver(
+      ([entry]) => {
+        const wasVisible = isVisible;
+        isVisible = entry.isIntersecting;
+        if (isVisible && !wasVisible) {
+          cancelAnimationFrame(raf);
+          raf = requestAnimationFrame(render);
+        }
+      },
+      { threshold: 0.05 }
+    );
+    visibilityObserver.observe(canvas);
 
     return () => {
       cancelAnimationFrame(raf);
+      visibilityObserver.disconnect();
       resizeObserver.disconnect();
       canvas.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
@@ -363,7 +401,7 @@ export function MapCanvas3D({
       window.removeEventListener("resize", resize);
       renderer.dispose();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

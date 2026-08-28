@@ -427,7 +427,7 @@ summary:focus-visible,
   height: 100%;
   display: block;
   cursor: default;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .driving-canvas:active,
@@ -802,7 +802,8 @@ summary:focus-visible,
   width: 100%;
   height: 100%;
   display: block;
-  touch-action: none;
+  touch-action: pan-y;
+  pointer-events: auto;
 }
 
 .course-card-eyebrow {
@@ -1081,6 +1082,17 @@ summary:focus-visible,
   animation: sun-ring-expand 4.2s ease-in-out infinite alternate;
 }
 
+@keyframes gate-glint-pulse {
+  0% {
+    width: min(140px, 70vw);
+    opacity: 0.75;
+  }
+  100% {
+    width: min(320px, 85vw);
+    opacity: 1;
+  }
+}
+
 @keyframes sun-pulse {
   0% {
     transform: scale(0.95);
@@ -1114,10 +1126,10 @@ summary:focus-visible,
 
 .car-dynamic-node {
   position: absolute;
-  bottom: 8%;
-  right: 12%;
-  width: 50%;
-  max-width: 780px;
+  bottom: 7%;
+  right: 7%;
+  width: 58%;
+  max-width: 900px;
   aspect-ratio: 1700 / 925;
   transform-origin: 65% 70%;
   transition: transform 140ms ease-out;
@@ -1398,6 +1410,8 @@ summary:focus-visible,
   opacity: 1 !important;
   visibility: visible !important;
   z-index: 5;
+  transform: translateZ(0);
+  backface-visibility: hidden;
   transition: transform 240ms cubic-bezier(0.2, 0.9, 0.25, 1), border-color 240ms ease, box-shadow 240ms ease;
   cursor: pointer;
 }
@@ -1517,7 +1531,7 @@ summary:focus-visible,
   width: 100%;
   height: 100%;
   display: block;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .map-3d-hint {
@@ -2502,14 +2516,14 @@ summary:focus-visible,
 
   .campaign-section {
     grid-template-columns: 1fr;
+    min-height: 640px;
   }
 
-  .campaign-image {
-    min-height: 620px;
-  }
-
-  .campaign-image::after {
-    background: linear-gradient(0deg, var(--navy-1000), transparent 42%);
+  .car-dynamic-node {
+    width: 68%;
+    max-width: 760px;
+    bottom: 5%;
+    right: 4%;
   }
 
   .campaign-copy {
@@ -2643,9 +2657,14 @@ summary:focus-visible,
   .course-card:first-child,
   .course-card:last-child {
     min-height: auto;
-    padding: 30px 0 36px;
+    padding: 32px 18px 36px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
+    transform: translateZ(0);
+  }
+
+  .course-diorama-wrap {
+    touch-action: pan-y;
   }
 
   .course-card:last-child {
@@ -2660,49 +2679,30 @@ summary:focus-visible,
     grid-template-columns: 1fr;
   }
 
-  .timeline {
+  .timeline-expressway {
     min-height: auto;
-    display: grid;
-    gap: 38px;
-    padding-left: 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    margin-top: 36px;
   }
 
-  .timeline>svg {
-    left: 0;
-    top: 0;
-    width: 2px;
-    height: 100%;
-  }
-
-  .timeline>svg path {
+  .expressway-svg {
     display: none;
   }
 
-  .timeline::before {
-    content: "";
-    position: absolute;
-    left: 5px;
-    top: 5px;
-    bottom: 5px;
-    width: 2px;
-    background: linear-gradient(var(--gold-deep), #d4d0c7);
-  }
-
-  .timeline-item,
-  .timeline-item--one,
-  .timeline-item--two,
-  .timeline-item--three {
+  .timeline-card,
+  .timeline-card--one,
+  .timeline-card--two,
+  .timeline-card--three {
     position: relative;
     inset: auto;
     width: 100%;
-    max-width: 560px;
-    padding-top: 0;
-    border-top: 0;
-  }
-
-  .timeline-item::before {
-    left: -27px;
-    top: 3px;
+    max-width: 580px;
+    margin: 0 auto;
+    background: rgba(3, 18, 46, 0.94);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
   }
 
   .locator-shell {
@@ -2856,8 +2856,15 @@ summary:focus-visible,
     font-size: 36px;
   }
 
-  .campaign-image {
-    min-height: 460px;
+  .campaign-section {
+    min-height: 560px;
+  }
+
+  .car-dynamic-node {
+    width: 86%;
+    max-width: 520px;
+    bottom: 3%;
+    right: 2%;
   }
 
   .campaign-image img {
@@ -3410,7 +3417,7 @@ summary:focus-visible,
 
 @media (max-width: 1120px) {
   .faq-journey__layout {
-    grid-template-columns: 170px minmax(0, 1fr) 45px;
+    grid-template-columns: minmax(160px, 18vw) minmax(0, 1fr);
     gap: 30px;
   }
 
@@ -3659,4 +3666,21 @@ summary:focus-visible,
   100% {
     transform: translateX(-33.33333%);
   }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Adaptive Low-Power / High-Performance Automatic Tier Tuning
+   ───────────────────────────────────────────────────────────────────────────── */
+html.perf-low *,
+html.perf-low *::before,
+html.perf-low *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.perf-low .timeline-card,
+html.perf-low .site-header,
+html.perf-low .course-diorama-wrap {
+  background: rgba(3, 17, 38, 0.96) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
 }

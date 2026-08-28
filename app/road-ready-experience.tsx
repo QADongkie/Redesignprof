@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useBusinessMotion } from "@/hooks/use-business-motion";
+import { useAdaptivePerformance } from "@/hooks/use-adaptive-performance";
 import { LogoIntro } from "@/components/common/logo-intro";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -19,6 +20,7 @@ export default function RoadReadyExperience() {
   const handleSceneReady = useCallback((ready: boolean) => setSceneReady(ready), []);
 
   useBusinessMotion();
+  useAdaptivePerformance();
 
   return (
     <div className="page-shell">

@@ -61,22 +61,29 @@ function loadNissanModel(): Promise<THREE.Group> {
   if (cachedGltfScene) return Promise.resolve(cachedGltfScene.clone());
   if (gltfPromise) return gltfPromise.then((scene) => scene.clone());
 
-  gltfPromise = new Promise((resolve, reject) => {
+  gltfPromise = (async () => {
+    const { DRACOLoader } = await import("three/examples/jsm/loaders/DRACOLoader.js");
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("/draco/");
     const loader = new GLTFLoader();
-    loader.load(
-      "/assets/2007-nissan-sentra-tl-mabuhay-hood-decal.glb",
-      (gltf) => {
-        refineNissanHoodDecal(gltf.scene);
-        cachedGltfScene = gltf.scene;
-        resolve(gltf.scene.clone());
-      },
-      undefined,
-      (err) => {
-        console.warn("Failed to load Nissan GLB in course diorama:", err);
-        reject(err);
-      }
-    );
-  });
+    loader.setDRACOLoader(dracoLoader);
+
+    return new Promise<THREE.Group>((resolve, reject) => {
+      loader.load(
+        "/assets/2007-nissan-sentra-tl-mabuhay-hood-decal.glb",
+        (gltf) => {
+          refineNissanHoodDecal(gltf.scene);
+          cachedGltfScene = gltf.scene;
+          resolve(gltf.scene.clone());
+        },
+        undefined,
+        (err) => {
+          console.warn("Failed to load Nissan GLB in course diorama:", err);
+          reject(err);
+        }
+      );
+    });
+  })();
   return gltfPromise.then((scene) => scene.clone());
 }
 
@@ -295,18 +302,26 @@ export function CourseCardDiorama({ courseId }: { courseId: CourseId }) {
     const container = containerRef.current;
     if (!canvas || !container) return;
 
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: true,
+        alpha: true,
+        powerPreference: isMobile ? "low-power" : "default",
+      });
     } catch {
       return;
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.enabled = !isMobile;
+    if (!isMobile) {
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    }
 
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x07152d, 0.042);
@@ -894,8 +909,7 @@ export function CourseCardDiorama({ courseId }: { courseId: CourseId }) {
     container.addEventListener("mousemove", onMouseMove);
     container.addEventListener("mouseleave", onMouseLeave);
 
-    // ── Resize & Render Loop ──────────────────────────────────────────────────
-    let raf = 0;
+    // ── Resize Observer ──────────────────────────────────────────────────────
     const resize = () => {
       const w = container.clientWidth;
       const h = container.clientHeight;
@@ -904,25 +918,55 @@ export function CourseCardDiorama({ courseId }: { courseId: CourseId }) {
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
     };
+    resize();
 
-    const render = () => {
-      raf = requestAnimationFrame(render);
+    const resizeObserver = new ResizeObserver(() => {
       resize();
+    });
+    resizeObserver.observe(container);
+
+    // ── Adaptive Render Loop ──────────────────────────────────────────────────
+    let raf = 0;
+    let isVisible = false;
+    let lastRenderTime = 0;
+    const targetInterval = isMobile ? 1000 / 30 : 1000 / 60;
+
+    const render = (now: number) => {
+      if (!isVisible) return;
+      raf = requestAnimationFrame(render);
+
+      if (now - lastRenderTime < targetInterval) return;
+      lastRenderTime = now;
 
       currentTiltX += (targetTiltX - currentTiltX) * 0.08;
       currentTiltY += (targetTiltY - currentTiltY) * 0.08;
       world.rotation.x = currentTiltX;
       world.rotation.y = currentTiltY;
 
-      const time = performance.now() / 1000;
+      const time = now / 1000;
       animUpdate(time);
 
       renderer.render(scene, camera);
     };
-    render();
+
+    // ── Visibility Observer (Completely sleeps RAF when off-screen) ───────────
+    const visibilityObserver = new IntersectionObserver(
+      ([entry]) => {
+        const wasVisible = isVisible;
+        isVisible = entry.isIntersecting;
+        if (isVisible && !wasVisible) {
+          cancelAnimationFrame(raf);
+          raf = requestAnimationFrame(render);
+        }
+      },
+      { threshold: 0.05 }
+    );
+    visibilityObserver.observe(container);
 
     return () => {
       cancelAnimationFrame(raf);
+      visibilityObserver.disconnect();
+      resizeObserver.disconnect();
       container.removeEventListener("mousemove", onMouseMove);
       container.removeEventListener("mouseleave", onMouseLeave);
       renderer.dispose();
