@@ -369,7 +369,7 @@ export function CourseCardDiorama({ courseId }: { courseId: CourseId }) {
     });
     const curbMat = new THREE.MeshStandardMaterial({ color: 0x16294d, roughness: 0.7, metalness: 0.25 });
 
-    let animUpdate = (_time: number) => {};
+    let animUpdate = (_time: number) => { };
 
     if (courseId === "tdc") {
       // ═════════════════════════════════════════════════════════════════════════
