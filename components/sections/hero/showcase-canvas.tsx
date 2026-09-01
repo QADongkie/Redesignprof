@@ -2,8 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import type { DRACOLoader as DracoLoaderType } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { applyNissanMaterials, makeDecalMaterial, refineNissanHoodDecal } from "@/components/sections/shared/nissan-utils";
+import { useNearViewport } from "@/hooks/use-near-viewport";
 
 interface ShowcaseCanvasProps {
   onReady: (ready: boolean) => void;
@@ -243,33 +245,46 @@ function createShadowTexture(): THREE.CanvasTexture {
 }
 
 export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const { ref: containerRef, isNearViewport } = useNearViewport<HTMLDivElement>({
+    rootMargin: "180px 0px",
+  });
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    if (!isNearViewport) return;
+
     const canvas = canvasRef.current;
     const container = containerRef.current;
     if (!canvas || !container) return;
 
+    const isMobile = window.matchMedia("(max-width: 768px), (pointer: coarse)").matches;
+    let disposed = false;
+    let dracoLoader: DracoLoaderType | null = null;
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({
         canvas,
-        antialias: true,
+        antialias: !isMobile,
         alpha: true,
-        powerPreference: "high-performance",
+        powerPreference: isMobile ? "low-power" : "high-performance",
       });
     } catch {
-      onReady(true);
+      onReady(false);
       return;
     }
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio, 1.75));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.18;
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.enabled = !isMobile;
+    if (!isMobile) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      onReady(false);
+    };
+    canvas.addEventListener("webglcontextlost", handleContextLost);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x040e22);
@@ -285,7 +300,7 @@ export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
 
     const keyLight = new THREE.DirectionalLight(0xfffaec, 4.6);
     keyLight.position.set(-2, 14, 8);
-    keyLight.castShadow = true;
+    keyLight.castShadow = !isMobile;
     keyLight.shadow.mapSize.set(2048, 2048);
     keyLight.shadow.camera.left = -6;
     keyLight.shadow.camera.right = 6;
@@ -392,7 +407,8 @@ export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
 
     void (async () => {
       const { DRACOLoader } = await import("three/examples/jsm/loaders/DRACOLoader.js");
-      const dracoLoader = new DRACOLoader();
+      if (disposed) return;
+      dracoLoader = new DRACOLoader();
       dracoLoader.setDecoderPath("/draco/");
       const loader = new GLTFLoader();
       loader.setDRACOLoader(dracoLoader);
@@ -400,6 +416,7 @@ export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
       loader.load(
         "/assets/2007-nissan-sentra-tl-mabuhay-hood-decal.glb",
         (gltf) => {
+          if (disposed) return;
           const model = gltf.scene;
           refineNissanHoodDecal(model);
         const box = new THREE.Box3().setFromObject(model);
@@ -427,8 +444,6 @@ export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
           tex.needsUpdate = true;
           return makeDecalMaterial(tex);
         };
-
-        const bodyMesh = model.getObjectByName("Mesh1_NISSANsentra_0") as THREE.Mesh;
 
         void Promise.allSettled([
           textureLoader.loadAsync("/assets/fleet/tl-mabuhay-side-livery-left.png"),
@@ -464,13 +479,19 @@ export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
       },
       undefined,
       (err) => {
+        if (disposed) return;
         console.error("Error loading Sentra GLB:", err);
         const fallback = createFallbackAcademyCar();
         carHolder.add(fallback);
         onReady(true);
       }
     );
-  })();
+    })().catch((error) => {
+      if (disposed) return;
+      console.error("The Nissan showcase decoder could not initialize:", error);
+      carHolder.add(createFallbackAcademyCar());
+      onReady(true);
+    });
 
     // Interactive mouse drag and inertia
     let isDragging = false;
@@ -502,7 +523,7 @@ export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
     window.addEventListener("pointerup", onPointerUp);
 
     // Resize handling
-    let animationFrameId: number;
+    let animationFrameId = 0;
 
     const handleResize = () => {
       if (!canvas || !container) return;
@@ -518,12 +539,24 @@ export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
     window.addEventListener("resize", handleResize);
     handleResize();
 
-    // Render loop
-    const clock = new THREE.Clock();
+    // Render only while the hero is visible. Mobile is intentionally capped at
+    // 30 FPS so the main thread and GPU keep enough headroom for scrolling.
+    let sceneVisible = true;
+    let pageVisible = !document.hidden;
+    let lastRenderTime = 0;
+    const targetFrameInterval = isMobile ? 1000 / 30 : 1000 / 60;
 
-    const animate = () => {
+    const animate = (time: number) => {
+      animationFrameId = 0;
+      if (disposed || !sceneVisible || !pageVisible) return;
+
       animationFrameId = requestAnimationFrame(animate);
-      const delta = clock.getDelta();
+      if (time - lastRenderTime < targetFrameInterval) return;
+
+      const delta = lastRenderTime === 0
+        ? 0
+        : Math.min((time - lastRenderTime) / 1000, 0.05);
+      lastRenderTime = time;
 
       if (autoRotate && !isDragging) {
         platformGroup.rotation.y += delta * 0.22;
@@ -540,17 +573,54 @@ export function ShowcaseCanvas({ onReady }: ShowcaseCanvasProps) {
       renderer.render(scene, camera);
     };
 
-    animate();
+    const stopLoop = () => {
+      if (!animationFrameId) return;
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = 0;
+    };
+
+    const startLoop = () => {
+      if (disposed || !sceneVisible || !pageVisible || animationFrameId) return;
+      lastRenderTime = 0;
+      animationFrameId = requestAnimationFrame(animate);
+    };
+
+    const visibilityObserver = new IntersectionObserver(
+      ([entry]) => {
+        sceneVisible = entry.isIntersecting;
+        if (sceneVisible) {
+          handleResize();
+          startLoop();
+        } else {
+          stopLoop();
+        }
+      },
+      { threshold: 0.01 }
+    );
+    visibilityObserver.observe(container);
+
+    const handlePageVisibility = () => {
+      pageVisible = !document.hidden;
+      if (pageVisible) startLoop();
+      else stopLoop();
+    };
+    document.addEventListener("visibilitychange", handlePageVisibility);
+    startLoop();
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      disposed = true;
+      stopLoop();
+      visibilityObserver.disconnect();
+      document.removeEventListener("visibilitychange", handlePageVisibility);
       window.removeEventListener("resize", handleResize);
       container.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
+      canvas.removeEventListener("webglcontextlost", handleContextLost);
+      dracoLoader?.dispose();
       renderer.dispose();
     };
-  }, [onReady]);
+  }, [containerRef, isNearViewport, onReady]);
 
   return (
     <div ref={containerRef} className="showcase-canvas-container" aria-label="3D Nissan Sentra interactive showcase">

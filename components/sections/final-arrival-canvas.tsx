@@ -3,11 +3,12 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import type { DRACOLoader as DracoLoaderType } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { makeDecalMaterial, refineNissanHoodDecal } from "@/components/sections/shared/nissan-utils";
 
 interface FinalArrivalCanvasProps {
-  onReady?: () => void;
+  onReady?: (ready: boolean) => void;
   onArrived?: () => void;
 }
 
@@ -512,7 +513,7 @@ function correctBranchArtwork(root: THREE.Object3D) {
   const frontSidewalk = root.getObjectByName("Front_Sidewalk");
 
   // Concrete perimeter sidewalk base around the building
-  let buildingSidewalk = root.getObjectByName("Building_Perimeter_Sidewalk");
+  const buildingSidewalk = root.getObjectByName("Building_Perimeter_Sidewalk");
   if (!buildingSidewalk && frontSidewalk instanceof THREE.Mesh) {
     const sidewalkGeo = new THREE.BoxGeometry(22.8, 0.22, 6.4);
     const sidewalkMesh = new THREE.Mesh(sidewalkGeo, frontSidewalk.material);
@@ -523,7 +524,7 @@ function correctBranchArtwork(root: THREE.Object3D) {
   }
 
   // Compact sidewalk-proportioned asphalt apron matching close background horizon
-  let unifiedAsphalt = root.getObjectByName("Seamless_Unified_Asphalt");
+  const unifiedAsphalt = root.getObjectByName("Seamless_Unified_Asphalt");
   if (!unifiedAsphalt && parkingAsphalt instanceof THREE.Mesh) {
     const apronGeo = new THREE.PlaneGeometry(36, 28);
     const apronMesh = new THREE.Mesh(apronGeo, parkingAsphalt.material);
@@ -860,16 +861,30 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
     let animationFrame = 0;
     let renderer: THREE.WebGLRenderer | null = null;
     let resizeObserver: ResizeObserver | null = null;
-    let dracoLoader: any = null;
+    let dracoLoader: DracoLoaderType | null = null;
+    let pageVisible = !document.hidden;
 
     const pointer = new THREE.Vector2();
+
+    const onContextLost = (event: Event) => {
+      event.preventDefault();
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+      onReady?.(false);
+    };
+
+    stableCanvas.addEventListener("webglcontextlost", onContextLost);
 
     const preloadObserver = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting) || initialized) return;
         initialized = true;
         preloadObserver.disconnect();
-        void initializeScene();
+        void initializeScene().catch((error) => {
+          if (disposed) return;
+          console.warn("The branch-arrival scene could not initialize; showing the visual fallback.", error);
+          onReady?.(false);
+        });
       },
       { rootMargin: "900px 0px" }
     );
@@ -880,9 +895,12 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
         const entry = entries[0];
         const wasVisible = sceneVisible;
         sceneVisible = entry.isIntersecting;
-        if (sceneVisible && !wasVisible && renderFrameFn) {
+        if (sceneVisible && !wasVisible && pageVisible && renderFrameFn) {
           window.cancelAnimationFrame(animationFrame);
           animationFrame = window.requestAnimationFrame(renderFrameFn);
+        } else if (!sceneVisible) {
+          window.cancelAnimationFrame(animationFrame);
+          animationFrame = 0;
         }
       },
       { threshold: 0 }
@@ -895,14 +913,29 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
       pointer.y = -(((event.clientY - bounds.top) / bounds.height) * 2 - 1);
     };
 
+    const onPageVisibilityChange = () => {
+      pageVisible = !document.hidden;
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+      if (pageVisible && sceneVisible && renderFrameFn) {
+        animationFrame = window.requestAnimationFrame(renderFrameFn);
+      }
+    };
+
     async function initializeScene() {
       const isMobile = window.innerWidth < 768;
-      renderer = new THREE.WebGLRenderer({
-        canvas: stableCanvas,
-        antialias: true,
-        alpha: true,
-        powerPreference: isMobile ? "default" : "high-performance",
-      });
+      try {
+        renderer = new THREE.WebGLRenderer({
+          canvas: stableCanvas,
+          antialias: !isMobile,
+          alpha: true,
+          powerPreference: isMobile ? "low-power" : "high-performance",
+        });
+      } catch (error) {
+        console.warn("WebGL is unavailable for the branch-arrival scene.", error);
+        onReady?.(false);
+        return;
+      }
       renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio || 1, 2));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -928,7 +961,7 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
 
       const sunlight = new THREE.DirectionalLight(0xfff3d8, 3.2);
       sunlight.position.set(16, 22, 18);
-      sunlight.castShadow = true;
+      sunlight.castShadow = !isMobile;
       sunlight.shadow.mapSize.set(2048, 2048);
       sunlight.shadow.camera.near = 1;
       sunlight.shadow.camera.far = 70;
@@ -1004,6 +1037,7 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
       };
 
       const { DRACOLoader } = await import("three/examples/jsm/loaders/DRACOLoader.js");
+      if (disposed) return;
       dracoLoader = new DRACOLoader();
       dracoLoader.setDecoderPath("/draco/");
       const loader = new GLTFLoader();
@@ -1186,17 +1220,19 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
           );
         }
 
-        onReady?.();
+        onReady?.(true);
         onArrived?.();
       } catch (error) {
         console.warn("The branch-arrival scene could not load; showing the branded fallback.", error);
-        onReady?.();
+        onReady?.(false);
       }
 
+      let compactLayout = stableHost.clientWidth < 760;
       const setCameraFraming = () => {
         const width = Math.max(stableHost.clientWidth, 1);
         const height = Math.max(stableHost.clientHeight, 1);
         const compact = width < 760;
+        compactLayout = compact;
 
         camera.aspect = width / height;
         camera.fov = compact ? 50 : 43;
@@ -1220,10 +1256,10 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
       let lastTime = performance.now() / 1000;
       let lastRenderTime = 0;
       const targetInterval = window.matchMedia("(pointer: coarse)").matches ? 1000 / 30 : 1000 / 60;
-      let cachedCompact = stableHost.clientWidth < 760;
 
       const renderFrame = (nowTime: number) => {
-        if (!renderer || disposed || !sceneVisible) return;
+        animationFrame = 0;
+        if (!renderer || disposed || !sceneVisible || !pageVisible) return;
         animationFrame = window.requestAnimationFrame(renderFrame);
 
         if (nowTime - lastRenderTime < targetInterval) return;
@@ -1260,29 +1296,37 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
         }
 
         camera.position.copy(cameraPosition);
-        camera.position.x += pointer.x * (cachedCompact ? 0.18 : 0.42);
+        camera.position.x += pointer.x * (compactLayout ? 0.18 : 0.42);
         camera.position.y += pointer.y * 0.18;
         camera.lookAt(cameraTarget);
 
         renderer.render(scene, camera);
       };
 
-      animationFrame = window.requestAnimationFrame(renderFrame);
+      renderFrameFn = renderFrame;
+      if (sceneVisible && pageVisible) {
+        animationFrame = window.requestAnimationFrame(renderFrame);
+      }
     }
 
     preloadObserver.observe(stableHost);
     visibilityObserver.observe(stableHost);
     stableHost.addEventListener("pointermove", onPointerMove, { passive: true });
+    document.addEventListener("visibilitychange", onPageVisibilityChange);
 
     return () => {
       disposed = true;
       window.cancelAnimationFrame(animationFrame);
+      renderFrameFn = null;
       preloadObserver.disconnect();
       visibilityObserver.disconnect();
       resizeObserver?.disconnect();
       stableHost.removeEventListener("pointermove", onPointerMove);
+      stableCanvas.removeEventListener("webglcontextlost", onContextLost);
+      document.removeEventListener("visibilitychange", onPageVisibilityChange);
       dracoLoader?.dispose();
       renderer?.dispose();
+      renderer?.forceContextLoss();
     };
   }, [onArrived, onReady]);
 
@@ -1297,4 +1341,3 @@ export function FinalArrivalCanvas({ onReady, onArrived }: FinalArrivalCanvasPro
     </div>
   );
 }
-

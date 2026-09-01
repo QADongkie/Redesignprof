@@ -1,15 +1,38 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { CourseId } from "@/data/courses";
 import { applyNissanMaterials, makeDecalMaterial, refineNissanHoodDecal } from "@/components/sections/shared/nissan-utils";
+import { useNearViewport } from "@/hooks/use-near-viewport";
 
 // Global cache for loaded GLTF model so all cards load instantaneously
 let cachedGltfScene: THREE.Group | null = null;
 let gltfPromise: Promise<THREE.Group> | null = null;
+
+const courseStaticPreviews: Record<
+  CourseId,
+  { background: string; label?: string; vehicle: boolean }
+> = {
+  tdc: {
+    background: "/assets/course-previews/tdc-classroom.webp",
+
+    vehicle: false,
+  },
+  pdc: {
+    background: "/assets/course-previews/pdc-practice-bay.webp",
+
+    vehicle: true,
+  },
+  refresher: {
+    background: "/assets/course-previews/refresher-road-signals.webp",
+
+    vehicle: true,
+  },
+};
 
 
 
@@ -294,10 +317,29 @@ function buildClassroomArmchair(): THREE.Group {
 }
 
 export function CourseCardDiorama({ courseId }: { courseId: CourseId }) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const { ref: containerRef, isNearViewport } = useNearViewport<HTMLDivElement>({
+    rootMargin: "120px 0px",
+  });
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [useStaticPreview, setUseStaticPreview] = useState(true);
+  const [isCompactPreview, setIsCompactPreview] = useState(true);
+  const staticPreview = courseStaticPreviews[courseId];
 
   useEffect(() => {
+    const query = window.matchMedia("(max-width: 768px), (pointer: coarse)");
+    const updatePreviewMode = () => {
+      setUseStaticPreview(query.matches);
+      setIsCompactPreview(query.matches);
+    };
+
+    updatePreviewMode();
+    query.addEventListener?.("change", updatePreviewMode);
+    return () => query.removeEventListener?.("change", updatePreviewMode);
+  }, []);
+
+  useEffect(() => {
+    if (useStaticPreview || !isNearViewport) return;
+
     const canvas = canvasRef.current;
     const container = containerRef.current;
     if (!canvas || !container) return;
@@ -307,12 +349,13 @@ export function CourseCardDiorama({ courseId }: { courseId: CourseId }) {
     try {
       renderer = new THREE.WebGLRenderer({
         canvas,
-        antialias: true,
+        antialias: !isMobile,
         alpha: true,
         powerPreference: isMobile ? "low-power" : "default",
       });
     } catch {
-      return;
+      const fallbackFrame = window.requestAnimationFrame(() => setUseStaticPreview(true));
+      return () => window.cancelAnimationFrame(fallbackFrame);
     }
     renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -322,6 +365,12 @@ export function CourseCardDiorama({ courseId }: { courseId: CourseId }) {
     if (!isMobile) {
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     }
+
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      setUseStaticPreview(true);
+    };
+    canvas.addEventListener("webglcontextlost", handleContextLost);
 
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x07152d, 0.042);
@@ -342,7 +391,7 @@ export function CourseCardDiorama({ courseId }: { courseId: CourseId }) {
 
     const sun = new THREE.DirectionalLight(0xfff8ee, 3.4);
     sun.position.set(6, 12, 8);
-    sun.castShadow = true;
+    sun.castShadow = !isMobile;
     sun.shadow.mapSize.set(1024, 1024);
     sun.shadow.camera.left = -6;
     sun.shadow.camera.right = 6;
@@ -384,7 +433,7 @@ export function CourseCardDiorama({ courseId }: { courseId: CourseId }) {
     });
     const curbMat = new THREE.MeshStandardMaterial({ color: 0x16294d, roughness: 0.7, metalness: 0.25 });
 
-    let animUpdate = (_time: number) => { };
+    let animUpdate: (time: number) => void = () => { };
 
     if (courseId === "tdc") {
       // ═════════════════════════════════════════════════════════════════════════
@@ -928,11 +977,12 @@ export function CourseCardDiorama({ courseId }: { courseId: CourseId }) {
     // ── Adaptive Render Loop ──────────────────────────────────────────────────
     let raf = 0;
     let isVisible = false;
+    let pageVisible = !document.hidden;
     let lastRenderTime = 0;
     const targetInterval = isMobile ? 1000 / 30 : 1000 / 60;
 
     const render = (now: number) => {
-      if (!isVisible) return;
+      if (!isVisible || !pageVisible) return;
       raf = requestAnimationFrame(render);
 
       if (now - lastRenderTime < targetInterval) return;
@@ -963,18 +1013,57 @@ export function CourseCardDiorama({ courseId }: { courseId: CourseId }) {
     );
     visibilityObserver.observe(container);
 
+    const handlePageVisibility = () => {
+      pageVisible = !document.hidden;
+      cancelAnimationFrame(raf);
+      if (pageVisible && isVisible) {
+        raf = requestAnimationFrame(render);
+      }
+    };
+    document.addEventListener("visibilitychange", handlePageVisibility);
+
     return () => {
       cancelAnimationFrame(raf);
       visibilityObserver.disconnect();
       resizeObserver.disconnect();
+      document.removeEventListener("visibilitychange", handlePageVisibility);
       container.removeEventListener("mousemove", onMouseMove);
       container.removeEventListener("mouseleave", onMouseLeave);
+      canvas.removeEventListener("webglcontextlost", handleContextLost);
       renderer.dispose();
     };
-  }, [courseId]);
+  }, [containerRef, courseId, isNearViewport, useStaticPreview]);
 
   return (
-    <div ref={containerRef} className="course-diorama-wrap" aria-label="Course 3D Showcase">
+    <div
+      ref={containerRef}
+      className={`course-diorama-wrap${useStaticPreview ? " is-static-preview" : ""}`}
+      aria-label={useStaticPreview ? staticPreview.label : "Course 3D showcase"}
+    >
+      <div
+        className={`course-diorama-static course-diorama-static--${courseId}`}
+        aria-hidden="true"
+      >
+        <Image
+          className="course-diorama-static__background"
+          src={staticPreview.background}
+          alt=""
+          width={1600}
+          height={900}
+          sizes="(max-width: 768px) 90vw, 32vw"
+        />
+        {staticPreview.vehicle && !isCompactPreview ? (
+          <Image
+            className="course-diorama-static__vehicle"
+            src="/assets/campaign/tl-mabuhay-car.webp"
+            alt=""
+            width={1700}
+            height={925}
+            sizes="(max-width: 768px) 76vw, 24vw"
+          />
+        ) : null}
+        <span className="course-diorama-static__label">{staticPreview.label}</span>
+      </div>
       <canvas ref={canvasRef} className="course-diorama-canvas" />
     </div>
   );

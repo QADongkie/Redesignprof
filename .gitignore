@@ -40,5 +40,6 @@ next-env.d.ts
 /.sites-runtime/
 /outputs/
 /work/
+/raw_assets/
 *.zip
 *.tar.gz

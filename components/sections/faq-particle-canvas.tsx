@@ -163,7 +163,7 @@ export function FaqParticleCanvas() {
 
     // Animation Loop
     let animationFrameId = 0;
-    let clock = new THREE.Clock();
+    const clock = new THREE.Clock();
 
     const animateLoop = () => {
       animationFrameId = requestAnimationFrame(animateLoop);

@@ -2,8 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import type { DRACOLoader as DracoLoaderType } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { branches } from "@/data/branches";
+import { useNearViewport } from "@/hooks/use-near-viewport";
 
 // ─── 3-D Map Anchor Lookup & Fallback Coordinates ───────────────────────────
 const PIN_ANCHORS: Record<string, { nodeName: string; x: number; y: number; z: number }> = {
@@ -26,7 +28,9 @@ export function MapCanvas3D({
   filteredIds: string[];
   onSelectBranch: (id: string) => void;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { ref: canvasRef, isNearViewport } = useNearViewport<HTMLCanvasElement>({
+    rootMargin: "180px 0px",
+  });
   const selectedIdRef = useRef(selectedId);
   const filteredIdsRef = useRef(filteredIds);
 
@@ -34,6 +38,8 @@ export function MapCanvas3D({
   useEffect(() => { filteredIdsRef.current = filteredIds; }, [filteredIds]);
 
   useEffect(() => {
+    if (!isNearViewport) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -43,7 +49,7 @@ export function MapCanvas3D({
     try {
       renderer = new THREE.WebGLRenderer({
         canvas,
-        antialias: true,
+        antialias: !isMobile,
         alpha: true,
         powerPreference: isMobile ? "low-power" : "default",
       });
@@ -77,7 +83,7 @@ export function MapCanvas3D({
 
     const keyLight = new THREE.DirectionalLight(0xfff5e6, 3.2);
     keyLight.position.set(-7, 14, 16);
-    keyLight.castShadow = true;
+    keyLight.castShadow = !isMobile;
     keyLight.shadow.mapSize.set(2048, 2048);
     keyLight.shadow.bias = -0.0002;
     keyLight.shadow.radius = 2.5;
@@ -132,15 +138,19 @@ export function MapCanvas3D({
     const clickTargets: Array<{ mesh: THREE.Mesh; id: string }> = [];
 
     // ── Load GLB map model ────────────────────────────────────────────────────
+    let disposed = false;
+    let dracoLoader: DracoLoaderType | null = null;
     void (async () => {
       const { DRACOLoader } = await import("three/examples/jsm/loaders/DRACOLoader.js");
-      const dracoLoader = new DRACOLoader();
+      if (disposed) return;
+      dracoLoader = new DRACOLoader();
       dracoLoader.setDecoderPath("/draco/");
       const loader = new GLTFLoader();
       loader.setDRACOLoader(dracoLoader);
       loader.load(
         "/assets/philippines-geography-map-3d.glb",
         (gltf) => {
+          if (disposed) return;
           const model = gltf.scene;
 
           const box = new THREE.Box3().setFromObject(model);
@@ -339,11 +349,12 @@ export function MapCanvas3D({
     // ── Render Loop ───────────────────────────────────────────────────────────
     let raf = 0;
     let isVisible = true;
+    let pageVisible = !document.hidden;
     let lastRenderTime = 0;
     const targetInterval = isMobile ? 1000 / 30 : 1000 / 60;
 
     const render = (now: number) => {
-      if (!isVisible) return;
+      if (!isVisible || !pageVisible) return;
       raf = requestAnimationFrame(render);
 
       if (now - lastRenderTime < targetInterval) return;
@@ -391,18 +402,30 @@ export function MapCanvas3D({
     );
     visibilityObserver.observe(canvas);
 
+    const handlePageVisibility = () => {
+      pageVisible = !document.hidden;
+      cancelAnimationFrame(raf);
+      if (pageVisible && isVisible) {
+        raf = requestAnimationFrame(render);
+      }
+    };
+    document.addEventListener("visibilitychange", handlePageVisibility);
+
     return () => {
+      disposed = true;
       cancelAnimationFrame(raf);
       visibilityObserver.disconnect();
       resizeObserver.disconnect();
+      document.removeEventListener("visibilitychange", handlePageVisibility);
       canvas.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("resize", resize);
+      dracoLoader?.dispose();
       renderer.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isNearViewport]);
 
   return (
     <canvas

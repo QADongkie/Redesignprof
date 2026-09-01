@@ -1,19 +1,43 @@
 "use client";
 
-
+import { useCallback, useState } from "react";
+import Image from "next/image";
 import { ArrowIcon } from "@/components/common/icons";
 import { ShowcaseCanvas } from "@/components/sections/hero/showcase-canvas";
 
 export function FinalCtaSection() {
+  const [sceneStatus, setSceneStatus] = useState<"loading" | "ready" | "fallback">("loading");
+
+  const handleSceneReady = useCallback((ready: boolean) => {
+    setSceneStatus(ready ? "ready" : "fallback");
+  }, []);
 
   return (
     <section
-      className="final-arrival"
+      className={`final-arrival is-scene-${sceneStatus}`}
       id="arrival"
       aria-labelledby="arrival-title"
     >
+      <Image
+        className="scene-fallback-backdrop"
+        src="/assets/fleet/tl-mabuhay-arrival-blue-hour-backdrop.webp"
+        alt=""
+        width={1664}
+        height={936}
+        sizes="100vw"
+        aria-hidden="true"
+      />
+      <Image
+        className="scene-fallback-vehicle scene-fallback-vehicle--final"
+        src="/assets/campaign/tl-mabuhay-car.webp"
+        alt=""
+        width={1700}
+        height={925}
+        sizes="(max-width: 860px) 110vw, 61vw"
+        aria-hidden="true"
+      />
       <div className="final-arrival-showcase">
-        <ShowcaseCanvas onReady={() => { }} />
+        <ShowcaseCanvas onReady={handleSceneReady} />
       </div>
 
       <div className="arrival-copy" data-reveal>
@@ -33,8 +57,6 @@ export function FinalCtaSection() {
           </a>
         </div>
       </div>
-
-
     </section>
   );
 }

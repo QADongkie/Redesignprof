@@ -38,7 +38,7 @@ html.intro-active body {
 
 body {
   margin: 0;
-  background: var(--paper);
+  background: var(--navy-1000);
   color: var(--ink);
   font-family: "DM Sans", Arial, sans-serif;
   overflow-x: hidden;
@@ -256,6 +256,8 @@ summary:focus-visible,
   box-shadow: 0 18px 55px rgba(0, 12, 24, .18);
   backdrop-filter: blur(18px) saturate(1.25);
   transform: translateX(-50%);
+  transition: transform 240ms cubic-bezier(.22, 1, .36, 1), box-shadow 220ms ease;
+  will-change: transform;
 }
 
 .brand {
@@ -387,6 +389,52 @@ summary:focus-visible,
     linear-gradient(176deg, #041424 0%, #0a2540 35%, #0f3d64 65%, #031220 100%);
 }
 
+.scene-fallback-backdrop,
+.scene-fallback-vehicle {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+.scene-fallback-backdrop {
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: .9;
+  filter: saturate(.84) contrast(1.05) brightness(.72);
+}
+
+.scene-fallback-vehicle {
+  z-index: 1;
+  right: -4vw;
+  bottom: 2%;
+  width: min(61vw, 980px);
+  height: auto;
+  opacity: .78;
+  filter: drop-shadow(0 30px 42px rgba(0, 0, 0, .56));
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity 420ms ease,
+    transform 850ms cubic-bezier(.16, 1, .3, 1),
+    visibility 0s linear 420ms;
+}
+
+.hero-section.is-scene-ready .scene-fallback-vehicle,
+.final-arrival.is-scene-ready .scene-fallback-vehicle {
+  visibility: hidden;
+  opacity: 0;
+  transform: translate3d(22px, 10px, 0) scale(.985);
+}
+
+.hero-section.is-scene-fallback .scene-fallback-vehicle,
+.final-arrival.is-scene-fallback .scene-fallback-vehicle {
+  opacity: .9;
+}
+
 .hero-visual::after {
   content: "";
   position: absolute;
@@ -409,13 +457,21 @@ summary:focus-visible,
   pointer-events: auto;
 }
 
+.hero-visual .arrival-canvas-shell {
+  z-index: 2;
+}
+
+.hero-visual .arrival-atmosphere {
+  z-index: 3;
+}
+
 .final-arrival-showcase,
 .final-arrival-showcase .showcase-canvas-container {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  z-index: 1;
+  z-index: 2;
   overflow: hidden;
   pointer-events: auto;
 }
@@ -804,6 +860,75 @@ summary:focus-visible,
   display: block;
   touch-action: pan-y;
   pointer-events: auto;
+}
+
+.course-diorama-static {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: none;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 72% 28%, rgba(243, 182, 31, .22), transparent 31%),
+    linear-gradient(145deg, #17366f 0%, #081b3e 56%, #030b1b 100%);
+}
+
+.course-diorama-static::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(2, 11, 27, .04) 36%, rgba(2, 10, 24, .64) 100%),
+    linear-gradient(90deg, rgba(3, 13, 31, .28), transparent 42%);
+}
+
+.course-diorama-static__label {
+  position: absolute;
+  z-index: 4;
+  left: 16px;
+  bottom: 13px;
+  color: rgba(255, 255, 255, .82);
+  font: 800 8px/1 "Manrope", sans-serif;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.course-diorama-static__background {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.course-diorama-static__vehicle {
+  position: absolute;
+  z-index: 3;
+  width: 78%;
+  height: auto;
+  right: 2%;
+  bottom: -4%;
+  object-fit: contain;
+  filter: drop-shadow(0 18px 18px rgba(0, 0, 0, .48));
+}
+
+.course-diorama-static--refresher .course-diorama-static__vehicle {
+  width: 70%;
+  right: 8%;
+  bottom: -6%;
+}
+
+.course-diorama-wrap.is-static-preview .course-diorama-static {
+  display: grid;
+}
+
+.course-diorama-wrap.is-static-preview .course-diorama-canvas {
+  display: none;
 }
 
 .course-card-eyebrow {
@@ -2262,7 +2387,7 @@ summary:focus-visible,
 
 .arrival-copy {
   position: relative;
-  z-index: 2;
+  z-index: 3;
   width: min(540px, 42vw);
   padding: 138px 0 176px max(5vw, 36px);
 }
@@ -2558,11 +2683,40 @@ summary:focus-visible,
 }
 
 @media (max-width: 860px) {
+  .scene-fallback-backdrop {
+    object-position: 62% center;
+    filter: saturate(.8) contrast(1.06) brightness(.62);
+  }
+
+  .scene-fallback-vehicle--hero {
+    right: -46vw;
+    bottom: 5%;
+    width: 112vw;
+    opacity: .56;
+  }
+
+  .scene-fallback-vehicle--final {
+    right: -38vw;
+    bottom: 2%;
+    width: 110vw;
+    opacity: .66;
+  }
+
+  .hero-section.is-scene-fallback .scene-fallback-vehicle--hero,
+  .final-arrival.is-scene-fallback .scene-fallback-vehicle--final {
+    opacity: .72;
+  }
+
   .site-header {
     grid-template-columns: 1fr auto;
     top: 10px;
     width: calc(100vw - 20px);
     min-height: 62px;
+  }
+
+  .site-header.is-mobile-hidden {
+    pointer-events: none;
+    transform: translate(-50%, calc(-100% - 18px));
   }
 
   .brand img {
@@ -2664,6 +2818,9 @@ summary:focus-visible,
   }
 
   .course-diorama-wrap {
+    height: auto;
+    aspect-ratio: 16 / 9;
+    margin-bottom: 28px;
     touch-action: pan-y;
   }
 
@@ -2671,8 +2828,14 @@ summary:focus-visible,
     border-bottom: 0;
   }
 
-  .course-card>div {
-    margin-bottom: 44px;
+  .course-card .course-card-header {
+    margin-bottom: 18px;
+  }
+
+  .course-card .course-card-header small {
+    max-width: 64%;
+    text-align: right;
+    line-height: 1.25;
   }
 
   .planner {
@@ -3683,4 +3846,10 @@ html.perf-low .site-header,
 html.perf-low .course-diorama-wrap {
   background: rgba(3, 17, 38, 0.96) !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+}
+
+html.perf-low .scene-fallback-backdrop,
+html.perf-low .scene-fallback-vehicle,
+html.perf-low .course-diorama-static img {
+  filter: none;
 }

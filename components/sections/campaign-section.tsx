@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import Image from "next/image";
 import { ArrowIcon } from "@/components/common/icons";
 
 export function CampaignSection() {
@@ -20,16 +21,8 @@ export function CampaignSection() {
     let currentScrollProgress = 0;
     let targetScrollProgress = 0;
     let rafId = 0;
-    let isVisible = true;
-
-    // Visibility Observer to stop RAF loop when off-screen
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        isVisible = entry.isIntersecting;
-      },
-      { threshold: 0.05 }
-    );
-    observer.observe(visual);
+    let isVisible = false;
+    let pageVisible = !document.hidden;
 
     const handleMouseMove = (e: MouseEvent) => {
       const rect = visual.getBoundingClientRect();
@@ -60,10 +53,10 @@ export function CampaignSection() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
 
-    let start = performance.now();
+    const start = performance.now();
     const loop = (now: number) => {
-      rafId = requestAnimationFrame(loop);
-      if (!isVisible) return;
+      rafId = 0;
+      if (!isVisible || !pageVisible) return;
 
       currentMouseX += (targetMouseX - currentMouseX) * 0.08;
       currentMouseY += (targetMouseY - currentMouseY) * 0.08;
@@ -98,12 +91,43 @@ export function CampaignSection() {
 
         carNodeRef.current.style.transform = `translate3d(${totalCarX}px, ${totalCarY}px, 0) scale(${carScale}) rotate(${totalCarRot}deg)`;
       }
+
+      rafId = requestAnimationFrame(loop);
     };
-    rafId = requestAnimationFrame(loop);
+
+    const startLoop = () => {
+      if (!rafId && isVisible && pageVisible) {
+        rafId = requestAnimationFrame(loop);
+      }
+    };
+
+    const stopLoop = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = 0;
+    };
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        isVisible = entry.isIntersecting;
+        if (isVisible) startLoop();
+        else stopLoop();
+      },
+      { threshold: 0.05 }
+    );
+
+    const handleVisibilityChange = () => {
+      pageVisible = !document.hidden;
+      if (pageVisible) startLoop();
+      else stopLoop();
+    };
+
+    observer.observe(visual);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      cancelAnimationFrame(rafId);
+      stopLoop();
       observer.disconnect();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       visual.removeEventListener("mousemove", handleMouseMove);
       visual.removeEventListener("mouseleave", handleMouseLeave);
       window.removeEventListener("scroll", handleScroll);
@@ -116,12 +140,13 @@ export function CampaignSection() {
       <div className="campaign-visual-stage" aria-label="TL Mabuhay highway journey">
         {/* Layer 0: Mountain Landscape & Sunset Horizon */}
         <div className="layer-plate layer-bg" ref={bgPlateRef}>
-          <img
+          <Image
             src="/assets/campaign/tl-mabuhay-background.webp"
             alt="TL Mabuhay highway towards mountain sunset"
             className="layer-img"
-            loading="lazy"
-            decoding="async"
+            width={1672}
+            height={941}
+            sizes="100vw"
           />
         </div>
 
@@ -135,12 +160,13 @@ export function CampaignSection() {
         <div className="layer-plate layer-car-wrap">
           <div className="car-dynamic-node" ref={carNodeRef}>
             <div className="car-ground-shadow" />
-            <img
+            <Image
               src="/assets/campaign/tl-mabuhay-car-side-logo.webp"
               alt="TL Mabuhay vehicle traveling safely on the highway"
               className="layer-car-img"
-              loading="lazy"
-              decoding="async"
+              width={1700}
+              height={925}
+              sizes="(max-width: 640px) 86vw, (max-width: 1024px) 68vw, 58vw"
             />
             <div className="tail-light-flare" />
           </div>
